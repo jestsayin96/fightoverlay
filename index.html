@@ -1178,8 +1178,8 @@ const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian"];
    gives each viewer's monster its own colour, so the far line still does
    not look like one sprite repeated. Add names back here as they are
    drawn. */
-const MOB_SPRITES   = ["goblin","skelet","orc_warrior"];
-const MOB_SPRITES_RETIRED = ["imp","chort","zombie",
+const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp"];
+const MOB_SPRITES_RETIRED = ["chort","zombie",
                              "masked_orc","swampy"];
 const BOSS_SPRITES  = ["demon","ogre","bigzombie"];
 
@@ -1253,6 +1253,13 @@ defSprite("mob_skelet",
 defSprite("mob_orc_warrior",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:40, ay:74, fh:62, dir:"sprites/orc_warrior/"});
+
+/* The Imp, 50px: the smallest thing on the field, which is the point -
+   next to a 62px orc it reads as a different kind of threat. ax
+   overridden from 34 to the torso centre; the wing drags the box left. */
+defSprite("mob_imp",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:50, dir:"sprites/imp/"});
 BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
   {idle:"boss_"+b+"_idle.png", walk:"boss_"+b+"_walk.png"}));
 
