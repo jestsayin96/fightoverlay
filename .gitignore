@@ -1,0 +1,3 @@
+# A/B harness drops a pinned copy of the committed overlay here so a
+# change can be measured against it in the same browser. Never shipped.
+index_base.html

@@ -310,6 +310,11 @@ const SKINS = ["#f1c9a5","#d9a173","#a9713f","#7a4a26","#f7dfc4","#5e3418"];
 const SHIRTS= ["#2de6c8","#4ddc5f","#8f6bff","#4db8ff","#ffd166","#ff7ad9",
                "#ff8a3d","#9ef01a","#f2fbf9","#5ad1b4"];
 const MONSTER_KINDS = ["Goblin","Skeleton","Slime","Imp","Ghoul","Kobold","Wraith"];
+/* Widened from five: five epithets over seven kinds is 35 names, and with a
+   dozen monsters alive the birthday maths puts two or three duplicates on
+   screen at once. See spawnMonster, which also rejects names already taken. */
+const MOB_EPITHETS  = ["Stray","Feral","Lost","Hungry","Rotten","Mangy",
+                       "Sullen","Craven","Bloated","Wretched","Snarling","Addled"];
 
 /* Signature abilities. Which one you get is decided by your name, so the
    same viewer always casts the same thing, every stream, forever. */
@@ -462,8 +467,19 @@ function joinHero(name, chatColor){
 function spawnMonster(name, opts){
   opts = opts || {};
   if (mobs().length >= T.maxMobs) return null;
-  const kind = pick(MONSTER_KINDS);
-  const label = name || (pick(["Stray","Feral","Lost","Hungry","Rotten"]) + " " + kind);
+  /* A flavour name is only flavour while it is unique. The plate layout
+     already stops two names overlapping, so a duplicate does not look like
+     a collision - it looks like the same monster drawn twice, which is
+     worse. Reject anything already on the field; 84 combinations against a
+     field cap in the low tens means the retry almost never runs out. */
+  let kind = pick(MONSTER_KINDS), label = name;
+  if (!label){
+    const taken = new Set(mobs().map(m => m.name));
+    for (let i = 0; i < 24; i++){
+      const k = pick(MONSTER_KINDS), cand = pick(MOB_EPITHETS) + " " + k;
+      if (!taken.has(cand) || i === 23){ kind = k; label = cand; break; }
+    }
+  }
   const m = baseEnt(label, -1, mobLook(label));
   m.kindName = kind;
   m.spriteKey = "mob_" + MOB_SPRITES[hash(label) % MOB_SPRITES.length];
@@ -763,9 +779,52 @@ function assignFoes(){
       if (d < bd){ bd=d; best=m; }
     }
     if (best){ taken.add(best.id); h.foeId=best.id; best.foeId=h.id; }
-    else h.foeId = null;
+    else { h.foeId = null; h.duelCol = null; }
   }
-  for (const m of ms) if (!taken.has(m.id)) m.foeId = null;
+  for (const m of ms) if (!taken.has(m.id)){ m.foeId = null; m.duelCol = null; }
+
+  /* Give every duel a column of its own.
+
+     lineGoal used to snap a pair to the column nearest its own midpoint.
+     That has no restoring force: the moment the crowd drifts together
+     every midpoint rounds to the same column, which pulls them tighter,
+     which makes the next round agree even harder. A 27-body fight ended
+     up inside a 300px ball with half the frame empty beside it.
+
+     Claiming the columns makes that impossible, because two duels cannot
+     want the same one. The two rules that keep it cheap: a pair keeps the
+     column it already holds while nothing else has taken it, so the grid
+     does not reshuffle under the fighters' feet the way the rank-ordered
+     version did (that one cost half the combat time); and a pair that has
+     to move takes the NEAREST free column, so the walk stays short. Past
+     eleven duels the columns double up rather than overflow - the cost is
+     ordered by how many pairs a column already holds, so load spreads
+     evenly before anyone gets a third. */
+  const COLS = 11;
+  const cw   = (T.fightRight - T.fightLeft) / (COLS - 1);
+  const by   = new Map(V.ents.map(e => [e.id, e]));
+  const pairs = [];
+  for (const h of hs){
+    const m = h.foeId != null ? by.get(h.foeId) : null;
+    if (m) pairs.push({ h, m, mid: (h.x + m.x) / 2 });
+  }
+  const use = new Array(COLS).fill(0);
+  const moving = [];
+  for (const p of pairs){
+    const c = p.h.duelCol;
+    if (c != null && c >= 0 && c === p.m.duelCol && use[c] === 0){ use[c]++; p.col = c; }
+    else moving.push(p);
+  }
+  for (const p of moving){
+    const want = clamp(Math.round((p.mid - T.fightLeft) / cw), 0, COLS - 1);
+    let best = 0, bd = Infinity;
+    for (let c = 0; c < COLS; c++){
+      const d = use[c] * 1000 + Math.abs(c - want);   // emptiest first, then nearest
+      if (d < bd){ bd = d; best = c; }
+    }
+    use[best]++; p.col = best;
+  }
+  for (const p of pairs){ p.h.duelCol = p.col; p.m.duelCol = p.col; }
 }
 
 function nearestFoe(e){
@@ -904,15 +963,16 @@ function lineGoal(e, foe){
        A fixed rally point was too expensive when march was 78px/s - the
        walk ate the fight - but at 210 it costs about a second.
 
-       Snapped to the NEAREST column rather than one picked from the pair
-       id: a hashed column sent fighters walking across the frame away
-       from the opponent they were locked on, which reads as avoidance.
-       Nearest keeps the walk short and duels still land on a grid,
-       because they are already spread out when they pair. */
+       The column is claimed in assignFoes rather than worked out here:
+       picking the nearest one per frame let every pair agree on the same
+       column once the crowd closed up, and picking one from the pair id
+       sent fighters walking away from the opponent they were locked on,
+       which reads as avoidance. See the note there. The fallback below
+       only runs for a pair formed outside assignFoes. */
     const cols = 11;
     const w    = (T.fightRight - T.fightLeft) / (cols - 1);
-    const mid  = (e.x + foe.x) / 2;
-    const col  = clamp(Math.round((mid - T.fightLeft) / w), 0, cols - 1);
+    const col  = (e.duelCol != null && e.duelCol >= 0) ? e.duelCol
+               : clamp(Math.round(((e.x + foe.x)/2 - T.fightLeft) / w), 0, cols - 1);
     const meet = T.fightLeft + col * w;
     return { x: meet - e.side*(T.engage*0.5),
              y: T.stripTop + 9 + (slot/(lanes-1)) * band };
@@ -1946,6 +2006,21 @@ function platePrio(e){
 
 function layoutPlates(c){
   const boxes = [];
+  /* Damage numbers are drawn after the plates and straight over them, so
+     unless the layout knows about them a hit paints "23" across someone's
+     name and neither is readable - the exact mush the tiering below was
+     written to prevent, arriving from the one direction it could not see.
+     Claim their rectangles first. A number lives under a second, so the
+     plate it displaces drops a tier and comes straight back. */
+  c.save();
+  c.font = '700 23px "Silkscreen",monospace';
+  for (const f of V.fx){
+    if (f.k !== "num") continue;
+    const k = Math.min(1, f.age / f.life);
+    boxes.push({ cx: f.x, top: f.y - k*42,
+                 w: c.measureText(f.txt).width + 10, h: 31 });
+  }
+  c.restore();
   /* Interesting names claim their spot first, the rest fill in around them.
      A plate with nowhere clear is dropped for this frame rather than printed
      on top of its neighbour: two overlapping names are both unreadable,

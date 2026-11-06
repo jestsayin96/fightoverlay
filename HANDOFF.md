@@ -229,16 +229,22 @@ last-resort nudge for two bodies on the same pixel. Nameplates step sideways
 before they stack upward. Still worth a look on a real stream: a very full
 lane (26 heroes) gets tight, on purpose, rather than walking off screen.
 
-### Attack and death are still performed, not drawn
-The CC0 pack still has no attack or death cells. A second pack was not
-mixed in — different proportions would break the 112×120 anchor, and
-generated cycles already failed the walk test. What plays now:
+### Attack and death are drawn now — fixed
+This entry used to say the CC0 pack had no attack or death cells, so both
+were faked with transforms on the hurt frame. Every one of the seventeen
+sets is original art with real `attack` (7) and `death` (4) clips, and
+`animOf` plays them.
 
-- **Strike:** windup (lean back on idle), contact (lunge onto the hurt
-  frame plus a local slash), recover. `e.swing` decays slower so the three
-  beats read.
-- **Hero down:** topples backward over ~0.4s, then crawls off with dust.
-- **Monster death:** topples, squashes, and bursts into pixels.
+One bug outlived the art by a while and is worth remembering: the collapse
+was keyed off `e.state === "down"`, but monsters and bosses never enter
+that state — `down()` retires them outright and they fade. So the drawn
+death clip only ever played for knocked-down *heroes*, and every monster
+on the field died playing its idle. `animOf` now keys the clip off the
+fade as well, and `fadeLife` stretches the fade for anything that has a
+death clip so the animation finishes before the sprite goes.
+
+The transform-based fallbacks are still in the draw path and still run for
+any set without a death clip. Nothing in rotation uses them.
 
 ### The field still wants a live-stream pass
 Hold lines and `fileGap` are tuned for a 1920×1080 source, not for how this
