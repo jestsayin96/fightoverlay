@@ -291,6 +291,7 @@ function joinHero(name, chatColor){
   a.rate  = 1.0;
   a.ab    = ABILITIES[hash(a.key+"spell") % ABILITIES.length];
   a.cls   = CLASS_OF[a.ab.id] || "knight";
+  a.spriteKey = a.cls;
   a.abcd  = rnd(0.5, a.ab.cd*0.5);
   V.ents.push(a);
   return a;
@@ -304,6 +305,7 @@ function spawnMonster(name, opts){
   const label = name || (pick(["Stray","Feral","Lost","Hungry","Rotten"]) + " " + kind);
   const m = baseEnt(label, -1, mobLook(label));
   m.kindName = kind;
+  m.spriteKey = "mob_" + MOB_SPRITES[hash(label) % MOB_SPRITES.length];
   m.maxHp = 46 + (opts.tough||0); m.hp = m.maxHp;
   m.atk = 6; m.rate = 1.2;
   m.named = !!name;
@@ -341,6 +343,7 @@ function spawnBoss(by){
   const pop = Math.max(3, heroes().length);
   const B = baseEnt((by? by+"'s ":"")+kind, -1, mobLook(kind));
   B.isBoss = true; B.kindName = kind;
+  B.spriteKey = "boss_" + BOSS_SPRITES[hash(B.name) % BOSS_SPRITES.length];
   B.x = T.mobGate + 40;
   B.y = (T.stripTop + T.stripBot)/2;
   B.maxHp = 230*pop; B.hp = B.maxHp;
@@ -725,66 +728,71 @@ function drawHat(c,hat,col){
 
 /* ==================================================================
    SPRITE SHEETS
-   Real pixel art, drawn 1:1 so the pixels stay crisp. Every animation
-   shares one 96x104 cell with the feet anchored at (48,96), so a
-   character never jumps when it switches animation.
+   Pixel art drawn 1:1 (already upscaled on disk) so pixels stay sharp.
+   Every sheet is a row of 112x120 cells with the feet at (56,112), so
+   nothing jumps when an entity switches animation or sprite.
+   Art: 0x72 "DungeonTileset II", CC0 — see LICENSES.md.
 ================================================================== */
-const CELL_W=96, CELL_H=104, ANCHOR_X=48, ANCHOR_Y=96;
+const CELL_W=112, CELL_H=120, ANCHOR_X=56, ANCHOR_Y=112;
+const SPRITE_DIR="sprites/dungeon/";
 
-const SHEETS = {
-  knight: {
-    idle:  {src:"sprites/knight_idle.png",   frames:4, fps:6,  loop:true},
-    walk:  {src:"sprites/knight_walk.png",   frames:4, fps:0,  loop:true},  // fps 0 = driven by stride
-    attack:{src:"sprites/knight_attack.png", frames:5, fps:14, loop:false},
-    death: {src:"sprites/knight_death.png",  frames:5, fps:8,  loop:false},
-  },
-};
-for (const cls in SHEETS){
-  for (const anim in SHEETS[cls]){
-    const a=SHEETS[cls][anim], i=new Image();
-    a.img=i; a.ready=false;
-    i.onload=()=>{ a.ready=true; };
-    i.onerror=()=>console.warn("sprite missing:", a.src);
-    i.src=a.src;
+const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian"];
+const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp",
+                       "chort","zombie","masked_orc","swampy"];
+const BOSS_SPRITES  = ["demon","ogre","bigzombie"];
+
+const SPRITES = {};
+function defSprite(key, files){
+  const set={};
+  for (const anim in files){
+    const a={src:SPRITE_DIR+files[anim], img:new Image(), frames:1, ready:false};
+    a.img.onload = ()=>{ a.frames = Math.max(1, Math.round(a.img.width/CELL_W));
+                         a.ready = true; };
+    a.img.onerror = ()=>console.warn("sprite missing:", a.src);
+    a.img.src = a.src;
+    set[anim]=a;
   }
+  SPRITES[key]=set;
 }
-function hasSheets(e){
-  const set = (e.side===1 && e.cls) ? SHEETS[e.cls] : null;
-  return (set && set.idle.ready) ? set : null;
+HERO_SPRITES.forEach(c=>defSprite(c,
+  {idle:c+"_idle.png", walk:c+"_walk.png", hurt:c+"_hurt.png"}));
+MOB_SPRITES.forEach(m=>defSprite("mob_"+m,
+  {idle:"mob_"+m+"_idle.png", walk:"mob_"+m+"_walk.png"}));
+BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
+  {idle:"boss_"+b+"_idle.png", walk:"boss_"+b+"_walk.png"}));
+
+function spriteSetFor(e){
+  const set = SPRITES[e.spriteKey];
+  return (set && set.idle && set.idle.ready) ? set : null;
 }
 
-/* which animation an entity is in, and how far through it */
+/* which animation, and which frame of it */
 function animOf(e, set){
-  if (e.state === "down"){
-    const t = Math.max(0, 9 - e.stateT);                 // 9s knockdown timer
-    const a = set.death;
-    return {a, f: Math.min(a.frames-1, Math.floor(t*a.fps))};
-  }
+  // no death art in this pack: hold the hurt pose (heroes) or idle, and
+  // let the renderer topple the body instead
+  if (e.state === "down") return {a:(set.hurt && set.hurt.ready)?set.hurt:set.idle, f:0, fell:true};
   if (e.swing > 0){
-    const a = set.attack;
-    const k = 1 - Math.max(0, Math.min(1, e.swing));     // 0 -> 1 across the swing
-    return {a, f: Math.min(a.frames-1, Math.floor(k*a.frames))};
+    const a=set.walk.ready?set.walk:set.idle;
+    const k=1-Math.max(0,Math.min(1,e.swing));
+    return {a, f:Math.min(a.frames-1, Math.floor(k*a.frames)), lunge:true};
   }
-  if (e.moving){
-    const a = set.walk;
-    return {a, f: ((Math.floor(e.walk/(Math.PI/2)) % a.frames) + a.frames) % a.frames};
+  if (e.moving && set.walk.ready){
+    const a=set.walk;
+    return {a, f:((Math.floor(e.walk/(Math.PI/2))%a.frames)+a.frames)%a.frames};
   }
-  const a = set.idle;
-  return {a, f: Math.floor(V.t*a.fps) % a.frames};
+  const a=set.idle;
+  return {a, f:Math.floor(V.t*6)%a.frames};
 }
 
 function drawSprite(c, e, set){
-  let {a,f} = animOf(e,set);
-  if (!a.ready) a = set.idle, f = 0;                     // fall back while loading
+  const r = animOf(e,set);
+  const a = r.a.ready ? r.a : set.idle;
+  const f = Math.min(r.f, a.frames-1);
   c.save();
   c.imageSmoothingEnabled = false;
-  // Grok's walk frames barely differ, so a plain slide reads as skating.
-  // A bob and a slight tilt on the stride give it some sense of footfall
-  // until a sheet with real leg movement replaces it.
-  if (e.moving && a === set.walk){
-    c.translate(0, -Math.abs(Math.sin(e.walk))*2.5);
-    c.rotate(Math.sin(e.walk*0.5) * 0.05 * e.face);
-  }
+  if (r.fell) c.rotate(e.side*0.95);                 // no death frames: topple
+  else if (r.lunge) c.translate(e.face*(6*(1-e.swing)), 0);
+  else if (e.moving) c.translate(0, -Math.abs(Math.sin(e.walk))*1.5);
   c.scale(e.face, 1);
   c.drawImage(a.img, f*CELL_W, 0, CELL_W, CELL_H,
               -ANCHOR_X, -ANCHOR_Y, CELL_W, CELL_H);
@@ -1163,7 +1171,7 @@ function layoutPlates(c){
     const fs = Math.max(14, 14*Math.min(s,1.7));
     c.font = "700 "+fs.toFixed(1)+'px "Silkscreen",monospace';
     const w = c.measureText(e.name).width + 10;
-    const sh2 = hasSheets(e);
+    const sh2 = spriteSetFor(e);
     let top = sh2 ? (e.y + e.gy - ANCHOR_Y - 6)
                   : (e.y + e.gy - 62*s - (e.isBoss?62:12));
     const h = fs + 10;
@@ -1356,16 +1364,16 @@ function render(){
     cx.globalAlpha/=.3;
     if (!e.alive){ const k=(V.t-e.fading)/1.2;
       cx.globalAlpha=Math.max(0,1-k); cx.translate(0,k*18); cx.rotate(k*.5); }
-    if (e.state==="down" && !hasSheets(e)) cx.rotate(e.side*0.9);
-    if (!hasSheets(e)) cx.scale(s/1.62, s/1.62);
+    if (e.state==="down" && !spriteSetFor(e)) cx.rotate(e.side*0.9);
+    if (!spriteSetFor(e)) cx.scale(s/1.62, s/1.62);
     if (e.flash>0 && Math.random()<.6) cx.globalAlpha*=.45;
-    const sh = hasSheets(e);
+    const sh = spriteSetFor(e);
     if (sh)              drawSprite(cx,e,sh);
     else if (e.isBoss)   drawBoss(cx,e);
     else if (e.side===1) drawHero(cx,e);
     else                 drawMonster(cx,e);
     cx.restore();
-    if (e.alive && (e.state!=="down" || hasSheets(e))) queuePlate(e);
+    if (e.alive && (e.state!=="down" || spriteSetFor(e))) queuePlate(e);
   }
   layoutPlates(cx);
   drawShots(cx);

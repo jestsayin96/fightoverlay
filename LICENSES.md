@@ -40,6 +40,39 @@ product, the character set is the thing to commission from a human — for
 quality, and so the rights are actually owned. Get legal advice before
 charging money.
 
+### `sprites/dungeon/` — characters, monsters and bosses
+
+| Field | Value |
+|---|---|
+| Pack | "DungeonTileset II" v1.3 |
+| Author | Robert ("0x72") |
+| License | **CC0 1.0** — public domain |
+| Commercial use | Yes, explicitly permitted |
+| Attribution | Not required; credited here anyway |
+| Obtained from | A GitHub repository that vendors the pack, cloned over HTTPS |
+
+Contains the six hero classes, eight monsters and three bosses, each with
+4-frame idle and run animations (heroes also have a 1-frame hurt pose).
+Source frames are 16x28 (heroes) up to 32x36 (bosses); this project scales
+them 3x with nearest-neighbour and re-anchors them onto a 112x120 cell.
+
+**Verification caveat.** The author distributes this pack on itch.io, which
+is not reachable from the build environment, so the copy here came from a
+third-party repository. An attempt to cross-check it byte-for-byte against a
+second independent copy found no other repository carrying the pack, so that
+check did not happen. The filenames, frame counts and dimensions all match
+the documented pack, and CC0 permits use and modification regardless of
+whether a copy was altered — but nobody has confirmed these files are
+identical to the author's originals. Worth re-verifying against the itch.io
+download before shipping commercially.
+
+### `sprites/knight_*.png` — unused
+
+Generated with Grok Imagine, Nov 2026. Kept for reference but not loaded by
+the overlay: the walk sheet's four frames differ by only 3-6% of silhouette,
+so the character slides rather than walks. See the caveat below on generated
+art.
+
 ## Fonts
 
 | Font | Source | License |
