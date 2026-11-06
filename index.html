@@ -764,10 +764,12 @@ function poseFor(e){
 
   if (mv){
     const a = Math.sin(ph), b = Math.sin(ph + PI);
-    p.hipF  =  a*0.62*run;        p.hipB  =  b*0.62*run;
-    p.kneeF =  Math.max(0, -a)*0.95;
+    /* NOTE: canvas rotate() is clockwise, so a POSITIVE joint angle swings
+       a limb toward -x, i.e. backwards. Forward motion needs negative hips. */
+    p.hipF  = -a*0.62*run;        p.hipB  = -b*0.62*run;
+    p.kneeF =  Math.max(0, -a)*0.95;   // knee bends while the leg is behind
     p.kneeB =  Math.max(0, -b)*0.95;
-    p.shF   = -a*0.55*run + 0.1;  p.shB   = -b*0.55*run + 0.1;
+    p.shF   =  a*0.55*run + 0.1;  p.shB   =  b*0.55*run + 0.1;
     p.elF   = 0.3 + Math.max(0,a)*0.3;
     p.elB   = 0.3 + Math.max(0,b)*0.3;
     p.bob   = Math.abs(Math.sin(ph))*2.1;
