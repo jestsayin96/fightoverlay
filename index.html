@@ -191,8 +191,41 @@ const T = {
   maxHeroes:  26,
   maxMobs:    22,
   march:      78,      // px/sec advance
-  idleSpawn:  5,       // dead air: a wandering monster this often...
-  idleFloor:  8,       // ...while monsters are under this many
+  /* Combat numbers, settled by simulating 4 minutes at 3, 10 and 25 viewers
+     and reading back hero health, knockdowns, kills and how long a monster
+     survives. These land at 77-83% average hero health, a knockdown per hero
+     every 1-4 minutes, and monsters living 8-10 seconds instead of 2. */
+  spawnGap:   1.0,     // seconds between arrivals while the far line is thin
+  mobFloor:   2,       // never fewer monsters about than this...
+  mobPerHero: 0.8,     // ...and roughly this many per hero, up to maxMobs
+  mobHp:      70,      // a monster's health before the crowd scaling below
+  mobAtk:     6,       // ...and its damage
+  heroHp:     190,     // a level-1 hero's health
+  heroHpLvl:  30,      // ...plus this per level
+  downTime:   4.5,     // seconds a knocked-down hero stays down
+  /* Hero damage grows with the crowd because every viewer brings a caster,
+     so monster health has to grow with it or a busy stream deletes the far
+     line on arrival. Damage is capped much lower: more monsters already
+     means more incoming, and scaling both flipped the fight the other way. */
+  crowdScale: 0.10,    // +10% monster health per extra hero, before steering
+  crowdAtkCap:1.0,     // damage scaling stops here
+  targetLife: 9,       // seconds a monster should survive - steered, see below
+  steerRate:  0.030,   // how hard to correct toward it
+  toughMin:   0.40,    // bounds on the steering, so it cannot run away
+  toughMax:   6.00,
+  targetDowns:0.5,     // knockdowns per hero per minute - also steered
+  powerRate:  0.060,   // how hard to correct toward it
+  /* The floor matters for feel, not just balance: steering monster damage
+     down far enough put "1.5" and "1.7" on screen, which reads as nothing
+     happening. Heroes carry a bigger health pool instead, so hits stay
+     legible numbers and the controller still has room to steer. */
+  powerMin:   0.50,
+  powerMax:   1.80,
+  spawnBurst: 4,       // how many can arrive at once while the line is thin
+  mendTargets:4,       // a heal reaches this many allies...
+  mendAmount: 28,      // ...for this much each
+  mobSpellMul:0.45,    // monsters cast weaker than heroes - there are more
+  mobCastGap: 0.8,     // ...and less often (heroes use 0.45)
   idleFor:    1800,    // 30 min silent and a hero wanders home
   showLevels: true,
   fileGap:    96,      // how far back each rank stands when there is room
@@ -265,6 +298,17 @@ const ABILITIES = [
 ];
 const METEOR = {id:"meteor", label:"Meteor", col:"#ff5a1f", cd:26, dmg:95};
 
+/* Monsters used to have a melee swing and nothing else, against eight hero
+   abilities. Measured at 25 viewers: 93% of all damage was hero spells
+   landing on monsters that never got to answer, and no hero was ever
+   knocked down in four minutes. These even the fight up. */
+const MOB_ABILITIES = [
+  {id:"spit",  label:"Acid Spit", col:"#9ef01a", cd:9,  dmg:22},
+  {id:"maul",  label:"Maul",      col:"#ff6b4d", cd:11, dmg:34},
+  {id:"gnash", label:"Gnash",     col:"#ff4d6d", cd:8,  dmg:16},
+  {id:"howl",  label:"Howl",      col:"#c58cff", cd:15, dmg:0},
+];
+
 /* what you cast decides what you look like */
 const CLASS_OF = {
   fireball:"mage", chain:"mage", frost:"mage",
@@ -292,7 +336,10 @@ function mobLook(name){
 ================================================================== */
 const V = { ents:[], props:[], boss:null, t:0, slain:0, lost:0,
             idleT:0, mobSeq:0, fx:[], shots:[], clouds:[], shake:0,
-            bombs:[], balls:[], cue:[] };
+            bombs:[], balls:[], cue:[],
+            /* steered difficulty: see steerDifficulty */
+            mobTough:1, lifeAvg:9, pairT:0,
+            mobPower:1, downEma:0, downRate:0 };
 let nid=1;
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const pick=a=>a[(Math.random()*a.length)|0];
@@ -300,6 +347,45 @@ const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 
 const heroes = ()=> V.ents.filter(e=>e.alive && e.side===1);
 const mobs   = ()=> V.ents.filter(e=>e.alive && e.side===-1);
+
+/* How deep the far line should be. Ten viewers shred a lone wanderer in
+   under a second, so the monster count follows the crowd; a fixed floor
+   turns a busy stream into a conveyor belt feeding a wood chipper. */
+const mobTarget = ()=> Math.round(clamp(
+  T.mobFloor + heroes().length * T.mobPerHero, T.mobFloor, T.maxMobs));
+/* Monsters get tougher with the crowd for the same reason. Damage scales
+   more slowly than health and is capped, so a big raid makes fights last
+   rather than making any single hit lethal. */
+const crowdMul = ()=> 1 + T.crowdScale * Math.max(0, heroes().length - 1);
+
+/* Monster toughness is steered, not fixed. Hero damage swings wildly with
+   how many viewers are watching and with which abilities their names happen
+   to roll, and the fight is bistable: survivors accumulate, dilute the
+   heroes' focus, and survive longer still. Measuring one set of constants
+   across seeds gave monster lifetimes anywhere from 2 to 32 seconds. So
+   rather than hand-tune numbers that only hold for one stream size, track
+   how long monsters are actually lasting and correct toward the target. */
+function steerDifficulty(dt){
+  const err = T.targetLife - V.lifeAvg;          // +ve: dying too fast
+  V.mobTough = clamp(V.mobTough + err * T.steerRate * dt,
+                     T.toughMin, T.toughMax);
+
+  /* Second loop, same idea, for how hard monsters hit. downEma decays with
+     a 30s time constant and gains 1 per knockdown, so downEma*2/heroes is
+     knockdowns per hero per minute. Steering this rather than fixing the
+     damage keeps a three-viewer stream and a raid both playable: the small
+     crowd has fewer healers and was taking six times the knockdowns. */
+  V.downEma *= Math.exp(-dt/30);
+  const n = Math.max(1, heroes().length);
+  V.downRate = V.downEma * 2 / n;
+  const derr = V.downRate - T.targetDowns;       // +ve: too brutal
+  V.mobPower = clamp(V.mobPower - derr * T.powerRate * dt,
+                     T.powerMin, T.powerMax);
+}
+function recordMobLife(e){
+  const life = V.t - (e.born || V.t);
+  V.lifeAvg = V.lifeAvg * 0.86 + life * 0.14;    // rolling mean
+}
 function findHero(name){ const k=name.toLowerCase();
   return V.ents.find(e=>e.alive && e.side===1 && e.key===k); }
 
@@ -316,7 +402,7 @@ function joinHero(name, chatColor){
   a = baseEnt(name, 1, heroLook(name, rec));
   a.rec = rec; a.key = name.toLowerCase();
   a.level = rec.level;
-  a.maxHp = 70 + 14*(rec.level-1); a.hp = a.maxHp;
+  a.maxHp = T.heroHp + T.heroHpLvl*(rec.level-1); a.hp = a.maxHp;
   a.atk   = 6 + 1.6*rec.level;
   a.rate  = 1.0;
   a.ab    = ABILITIES[hash(a.key+"spell") % ABILITIES.length];
@@ -337,8 +423,11 @@ function spawnMonster(name, opts){
   const m = baseEnt(label, -1, mobLook(label));
   m.kindName = kind;
   m.spriteKey = "mob_" + MOB_SPRITES[hash(label) % MOB_SPRITES.length];
-  m.maxHp = 46 + (opts.tough||0); m.hp = m.maxHp;
-  m.atk = 6; m.rate = 1.2;
+  const crowd = crowdMul() * V.mobTough;
+  m.maxHp = Math.round((T.mobHp + (opts.tough||0)) * crowd); m.hp = m.maxHp;
+  m.atk = T.mobAtk * Math.min(crowdMul(), T.crowdAtkCap); m.rate = 1.2;
+  m.ab   = MOB_ABILITIES[hash(label+"spell") % MOB_ABILITIES.length];
+  m.abcd = rnd(0.5, m.ab.cd*0.5);
   m.named = !!name;
   if (name){ m.rec = Save.get(name); m.key = name.toLowerCase(); }
   V.ents.push(m);
@@ -352,7 +441,7 @@ function baseEnt(name, side, look){
     y: rnd(T.stripTop, T.stripBot),
     vy:0, gy:0, face: side, walk:rnd(0,6),
     state:"march", stateT:0, cd:rnd(0,1),
-    flash:0, swing:0, fading:0, cast:0, slow:0, ab:null, abcd:99,
+    flash:0, swing:0, fading:0, cast:0, slow:0, ab:null, abcd:99, foeId:null,
     lastSeen: V.t, born: V.t,
     rec:null, key:null, level:1,
     hp:50, maxHp:50, atk:5, rate:1.1,
@@ -432,21 +521,54 @@ function foesNear(e,x,r){
 
 function cast(e, foe){
   const ab = (e.rec && e.rec.level>=10 && Math.random()<.22) ? METEOR : e.ab;
-  e.abcd = ab.cd * 0.45 * (0.8 + Math.random()*0.45);   // cast roughly twice as often
+  e.abcd = ab.cd * (e.side===-1 ? T.mobCastGap : 0.45) * (0.8 + Math.random()*0.45);
   e.cast = .5;
-  const L = ab.dmg * (1 + (e.rec ? (e.rec.level-1)*0.14 : 0));
+  /* Monsters cast weaker and slower than heroes on purpose: their numbers
+     already scale with the crowd, so giving their spells the crowd
+     multiplier too stacked twice and flipped the fight the other way -
+     measured at five to fourteen hero knockdowns a minute. */
+  const L = ab.dmg * (1 + (e.rec ? (e.rec.level-1)*0.14 : 0))
+            * (e.side===-1 ? T.mobSpellMul * V.mobPower : 1);
 
   switch(ab.id){
     case "fireball":
-      V.shots.push({k:"fireball",x:e.x+18,y:e.y-26,vx:620,owner:e,
+      V.shots.push({k:"fireball",x:e.x+18*e.side,y:e.y-26,vx:620*e.side,owner:e,
                     dmg:L,col:ab.col});
       break;
     case "crescent":
-      V.shots.push({k:"crescent",x:e.x+18,y:e.y-24,vx:780,owner:e,
+      V.shots.push({k:"crescent",x:e.x+18*e.side,y:e.y-24,vx:780*e.side,owner:e,
                     dmg:L,col:ab.col,pierce:3,hitIds:[]});
       break;
+    /* ---- monster side ---- */
+    case "spit":
+      V.shots.push({k:"fireball",x:e.x+18*e.side,y:e.y-24,vx:560*e.side,owner:e,
+                    dmg:L,col:ab.col});
+      break;
+    case "maul":
+      if(foe){
+        fx({k:"ring",x:foe.x,y:foe.y-16,r0:8,r1:74,col:ab.col,life:.38,w:6});
+        abHit(e,foe,L,ab.col); V.shake=Math.max(V.shake,5);
+      }
+      break;
+    case "gnash":
+      fx({k:"ring",x:e.x,y:e.y-16,r0:10,r1:112,col:ab.col,life:.4,w:5});
+      for(const t of foesNear(e,e.x,112)) abHit(e,t,L,ab.col);
+      break;
+    case "howl":{
+      /* the pack rallies: the three most wounded nearby, mirroring mend */
+      const kin = V.ents
+        .filter(o=>o.alive && o.side===e.side && o.state!=="down" &&
+                   o.hp<o.maxHp && Math.abs(o.x-e.x)<260)
+        .sort((a,b)=>a.hp/a.maxHp-b.hp/b.maxHp).slice(0,3);
+      for(const o of kin){
+        o.hp=Math.min(o.maxHp,o.hp+24);
+        fx({k:"spark",x:o.x,y:o.y-30,col:ab.col,life:.7});
+      }
+      fx({k:"ring",x:e.x,y:e.y-16,r0:10,r1:180,col:ab.col,life:.6,w:3});
+      if(kin.length) log([{t:e.name,c:"c-h"},{t:" howls — the pack rallies",c:"c-v"}]);
+      break; }
     case "chain":{
-      const tg = foesNear(e, e.x+200, 420)
+      const tg = foesNear(e, e.x+200*e.side, 420)
         .sort((a,b)=>Math.abs(a.x-e.x)-Math.abs(b.x-e.x)).slice(0,3);
       let from = {x:e.x+14,y:e.y-26};
       for(const t of tg){
@@ -467,16 +589,24 @@ function cast(e, foe){
       for(const t of foesNear(e,e.x,165)){ abHit(e,t,L,ab.col); t.slow=2.4; }
       break;
     case "venom":
-      V.clouds.push({x:(foe?foe.x:e.x+160),y:e.y,r:92,life:6,age:0,
+      V.clouds.push({x:(foe?foe.x:e.x+160*e.side),y:e.y,r:92,life:6,age:0,
                      dmg:L,owner:e,col:ab.col,tick:0});
       break;
     case "mend":{
+      /* the most wounded few, not everyone standing nearby. A blanket heal
+         scales with the size of the crowd while monster damage does not, so
+         once a couple of clerics were on screen the heroes could not be
+         killed at all - measured at roughly three times more healing per
+         second than the monsters could deal. */
+      const hurt = V.ents
+        .filter(h=>h.alive && h.side===e.side && h.state!=="down" &&
+                   h.hp < h.maxHp && Math.abs(h.x-e.x) < 240)
+        .sort((a,b)=> a.hp/a.maxHp - b.hp/b.maxHp)
+        .slice(0, T.mendTargets);
       let healed=0;
-      for(const h of V.ents){
-        if(h.alive && h.side===e.side && h.hp<h.maxHp && Math.abs(h.x-e.x)<240){
-          h.hp = Math.min(h.maxHp, h.hp + 34); healed++;
-          fx({k:"spark",x:h.x,y:h.y-30,col:ab.col,life:.7});
-        }
+      for(const h of hurt){
+        h.hp = Math.min(h.maxHp, h.hp + T.mendAmount); healed++;
+        fx({k:"spark",x:h.x,y:h.y-30,col:ab.col,life:.7});
       }
       fx({k:"ring",x:e.x,y:e.y-16,r0:10,r1:200,col:ab.col,life:.6,w:3});
       if(healed) log([{t:e.name,c:"c-t"},{t:" mends "+healed+" "+
@@ -500,22 +630,22 @@ function stepAbilities(dt){
   for(const s of V.shots){
     s.x += s.vx*dt;
     if(s.k==="fireball"){
-      const t = V.ents.find(o=>o.alive && o.side===-1 && o.state!=="down" &&
-                Math.abs(o.x-s.x)<34);
-      if(t || s.x>1990){
+      const t = V.ents.find(o=>o.alive && o.side!==s.owner.side &&
+                o.state!=="down" && Math.abs(o.x-s.x)<34);
+      if(t || s.x>1990 || s.x<-70){
         fx({k:"burst",x:s.x,y:s.y+18,r1:96,col:s.col,life:.4});
         for(const o of foesNear(s.owner,s.x,88)) abHit(s.owner,o,s.dmg,s.col);
         s.dead=true; V.shake=Math.max(V.shake,4);
       }
     } else if(s.k==="crescent"){
       for(const o of V.ents){
-        if(o.alive && o.side===-1 && o.state!=="down" &&
+        if(o.alive && o.side!==s.owner.side && o.state!=="down" &&
            Math.abs(o.x-s.x)<30 && s.hitIds.indexOf(o.id)<0){
           s.hitIds.push(o.id); abHit(s.owner,o,s.dmg,s.col);
           if(s.hitIds.length>=s.pierce) s.dead=true;
         }
       }
-      if(s.x>1990) s.dead=true;
+      if(s.x>1990 || s.x<-70) s.dead=true;
     }
   }
   V.shots = V.shots.filter(s=>!s.dead);
@@ -545,6 +675,32 @@ function stepAbilities(dt){
 /* ==================================================================
    SIM — two armies, left vs right
 ================================================================== */
+/* Pair fighters off one to one. Left alone everyone picks the nearest
+   enemy, so the whole field converges on a single duel while every rank
+   behind marches in place - measured at 66 landed hits in four minutes
+   across ten heroes, with the heroes finishing untouched. Pairing spreads
+   the battle along the lane and lets every monster swing at someone.
+   Whoever is left over when the sides are uneven falls back to nearest
+   and gangs up, which is what you want the surplus to do anyway. */
+function assignFoes(){
+  const side = s => V.ents.filter(e=>e.alive && e.side===s &&
+                                     e.state!=="down" && !e.isBoss);
+  const hs = side(1).sort((a,b)=>b.x-a.x);     // front-most hero first
+  const ms = side(-1);
+  const taken = new Set();
+  for (const h of hs){
+    let best=null, bd=Infinity;
+    for (const m of ms){
+      if (taken.has(m.id)) continue;
+      const d = Math.abs(m.x-h.x);
+      if (d < bd){ bd=d; best=m; }
+    }
+    if (best){ taken.add(best.id); h.foeId=best.id; best.foeId=h.id; }
+    else h.foeId = null;
+  }
+  for (const m of ms) if (!taken.has(m.id)) m.foeId = null;
+}
+
 function nearestFoe(e){
   if (MG.kind==="hoop" || MG.kind==="royale-join") return null;
   if (SCENE==="lounge" && MG.kind!=="royale" && MG.kind!=="duel") return null;
@@ -563,6 +719,12 @@ function nearestFoe(e){
     }
     return best;
   }
+  /* the partner assignFoes gave us, while it still stands */
+  if (e.foeId != null){
+    const p = V.ents.find(o=>o.id===e.foeId);
+    if (p && p.alive && p.state!=="down" && p.side!==e.side) return p;
+    e.foeId = null;
+  }
   let best=null, bd=Infinity;
   for (const o of V.ents){
     if (!o.alive || o.side===e.side || o.state==="down") continue;
@@ -573,7 +735,8 @@ function nearestFoe(e){
 }
 
 function hit(src, dst){
-  const dmg = src.atk * (src.isBoss ? 1 : (0.85 + Math.random()*0.3));
+  const dmg = src.atk * (src.isBoss ? 1 : (0.85 + Math.random()*0.3))
+              * (src.side===-1 && !src.isBoss ? V.mobPower : 1);
   dst.hp -= dmg; dst.flash = .28; src.swing = 1;
   // the clash itself: a slash arc where the weapon lands, sparks, a number
   const mx = (src.x + dst.x)/2, my = dst.y - 34;
@@ -600,6 +763,7 @@ function down(src, dst){
     dropLoot(); return;
   }
   if (dst.side === -1){
+    recordMobLife(dst);
     dst.alive=false; dst.fading=V.t; V.slain++;
     fx({k:"shatter", x:dst.x, y:dst.y-28, col: dst.look&&dst.look.skin || "#ff4d6d", life:.55});
     if (src.side===1 && src.rec){
@@ -611,8 +775,12 @@ function down(src, dst){
     }
   } else {
     // heroes go down, then walk back on from the left
-    dst.state="down"; dst.stateT=9; dst.fallT=0.42; dst.dust=0.15; V.lost++;
+    /* down time was 9s: with about a knockdown a minute per hero that
+       left a sixth of the field lying on the floor at any moment, which
+       read as a graveyard rather than a battle. */
+    dst.state="down"; dst.stateT=T.downTime; dst.fallT=0.42; dst.dust=0.15; V.lost++;
     if (MG.kind==="royale" && dst.ff) dst.ff=false;
+    V.downEma += 1;                     // feeds the aggression controller
     if (dst.rec){ dst.rec.deaths++; Save.put(); }
     log([{t:dst.name,c:"c-t"},{t:" was knocked down by ",c:"c-v"},{t:src.name,c:"c-h"}]);
   }
@@ -645,6 +813,17 @@ function lineGoal(e, foe){
     const y=(T.stripTop+T.stripBot)/2;
     if (!foe) return {x:T.bossHold, y};
     return {x:foe.x - e.side*(T.engage+8), y};
+  }
+  /* Paired off: go to your own opponent rather than queueing in the rank.
+     Both halves of a pair derive the same depth from the pair's lower id,
+     so duels spread across the strip instead of every pair converging on
+     the same line and piling up in the middle of the frame. */
+  if (foe && e.foeId === foe.id){
+    const lanes = 5;
+    const slot  = (Math.min(e.id, foe.id) * 7) % lanes;      // stable per pair
+    const band  = (T.stripBot - T.stripTop) - 18;
+    return { x: foe.x - e.side*(T.engage-10),
+             y: T.stripTop + 9 + (slot/(lanes-1)) * band };
   }
   const mates=sideMates(e);
   const n=Math.max(1, mates.length);
@@ -687,11 +866,21 @@ function step(dt){
   if (SCENE!=="war" || MG.kind) V.idleT = 0;
   else {
     V.idleT += dt;
-    if (V.idleT >= T.idleSpawn){
+    if (V.idleT >= T.spawnGap){
       V.idleT = 0;
-      if (mobs().length < T.idleFloor) spawnMonster(null);
+      /* fill toward the target rather than one at a time: at a busy
+         crowd the far line dies faster than a single arrival replaces it */
+      const want = Math.min(mobTarget() - mobs().length, T.spawnBurst);
+      for (let i=0; i<want; i++) spawnMonster(null);
     }
   }
+
+  steerDifficulty(dt);
+
+  /* re-pair a few times a second: often enough to pick up deaths and
+     arrivals, rarely enough that targets do not thrash frame to frame */
+  V.pairT = (V.pairT||0) - dt;
+  if (V.pairT <= 0){ V.pairT = 0.4; assignFoes(); }
 
   for (const e of V.ents){
     if (!e.alive) continue;
@@ -782,8 +971,8 @@ function step(dt){
     const foe = nearestFoe(e);
     const gap = foe ? Math.abs(foe.x - e.x) : Infinity;
 
-    /* heroes fire their signature from range, not just in melee */
-    if (e.side===1 && e.ab && foe && gap < 1100 && MG.kind!=="hoop"){
+    /* both sides fire their signature from range, not just in melee */
+    if (e.ab && foe && gap < 1100 && MG.kind!=="hoop"){
       e.abcd -= dt;
       if (e.abcd <= 0) cast(e, foe);
     }
