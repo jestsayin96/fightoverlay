@@ -1081,8 +1081,16 @@ const CELL_W=112, CELL_H=120, ANCHOR_X=56, ANCHOR_Y=112;
 const SPRITE_DIR="sprites/dungeon/";
 
 const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian"];
-const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp",
-                       "chort","zombie","masked_orc","swampy"];
+/* Only the monsters that have been redrawn are in play. The 0x72 sheets
+   for the rest are still in sprites/dungeon and still listed in
+   LICENSES.md, but mixing them in put 30px monsters shoulder to shoulder
+   with 52px ones. Two types is fewer than eight; the runtime palette swap
+   gives each viewer's monster its own colour, so the far line still does
+   not look like one sprite repeated. Add names back here as they are
+   drawn. */
+const MOB_SPRITES   = ["goblin","skelet"];
+const MOB_SPRITES_RETIRED = ["orc_warrior","imp","chort","zombie",
+                             "masked_orc","swampy"];
 const BOSS_SPRITES  = ["demon","ogre","bigzombie"];
 
 const SPRITES = {};
@@ -1145,6 +1153,9 @@ MOB_SPRITES.forEach(m=>defSprite("mob_"+m,
 defSprite("mob_goblin",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:38, ay:72, fh:52, dir:"sprites/goblin/"});
+defSprite("mob_skelet",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:54, dir:"sprites/skeleton/"});
 BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
   {idle:"boss_"+b+"_idle.png", walk:"boss_"+b+"_walk.png"}));
 
