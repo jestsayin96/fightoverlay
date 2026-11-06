@@ -1237,7 +1237,7 @@ const CELL_W=112, CELL_H=120, ANCHOR_X=56, ANCHOR_Y=112;
 const SPRITE_DIR="sprites/dungeon/";
 
 const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian",
-                      "ranger"];
+                      "ranger","necromancer"];
 /* All eight monsters are now drawn here, so the 0x72 sheets are out of
    play entirely: they are still in sprites/dungeon and still listed in
    LICENSES.md, but nothing references them. Mixing them in had put 30px
@@ -1309,6 +1309,18 @@ defSprite("cleric",
 defSprite("ranger",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:40, ay:76, fh:60, dir:"sprites/ranger/"});
+
+/* The Necromancer, 64px to the top of its staff. Kept apart from the mage
+   by having no face at all: the hood is empty except two green eyes, which
+   is the one silhouette no other hero can be confused with, and the skull
+   staff is the second read. The hands are bone rather than skin for the
+   same reason. Its attack charges the skull green and throws the bolt.
+   build_char.py put ax at 44 because the staff juts right; the feet
+   centre on 40. fh counts the staff, which is deliberate - it keeps the
+   nameplate above the skull rather than through it. */
+defSprite("necromancer",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:76, fh:64, dir:"sprites/necromancer/"});
 MOB_SPRITES.forEach(m=>defSprite("mob_"+m,
   {idle:"mob_"+m+"_idle.png", walk:"mob_"+m+"_walk.png"}));
 
