@@ -197,7 +197,8 @@ const T = {
   mobHold:    1080,    // ...and monsters hold this one. Closer together
                        //   than they were: 420px apart meant the two
                        //   idle ranks stared at each other out of reach
-  colSpread:  3,       // how far a duel will walk to avoid sharing a column
+  colSpread:  1000,    // cost per occupant of sharing a column
+  colReach:   2,       // ...but never displaced more than this many columns
   fightLeft:  380,     // duels are held inside this band of the frame
   fightRight: 1560,    //   so the fight can never drift off to an edge
   bossHold:   1420,    // a boss plants itself here and waits
@@ -831,13 +832,19 @@ function assignFoes(){
     else moving.push(p);
   }
   for (const p of moving){
-    const w = want(p);
-    let best = 0, bd = Infinity;
-    for (let c = 0; c < COLS; c++){
-      /* Cost, not a hard rule. Charging a whole column of distance per
-         occupant means an empty column has to be genuinely close to be
-         worth the walk - at an infinite penalty a pair would cross the
-         frame rather than share, which is how the walk ate the fight. */
+    const w  = want(p);
+    /* Only look at columns near where the duel already is. A sweep over the
+       whole row showed the trade is with DISTANCE TRAVELLED, not with
+       sharing: spread bought band occupancy and paid kills at every setting
+       (22.9% band / 19.5 kills unbounded-off, 68.9% / 12.0 at its widest),
+       because an unbounded search can send a pair clean across the frame.
+       Bounded, the column grid stops being a global tidy-up and becomes a
+       local repulsion: a clump can only push itself apart a column at a
+       time, so it still diffuses out over a few ticks, but no single walk
+       is longer than colReach columns. */
+    const lo = Math.max(0, w - T.colReach), hi = Math.min(COLS - 1, w + T.colReach);
+    let best = w, bd = Infinity;
+    for (let c = lo; c <= hi; c++){
       const d = use[c] * T.colSpread + Math.abs(c - w);
       if (d < bd){ bd = d; best = c; }
     }
