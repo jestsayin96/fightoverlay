@@ -32,6 +32,7 @@ fit for anything sellable. Don't use it here.
 | `sprites/knight/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (36,74). 2/4/7/4 frames. |
 | `sprites/goblin/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (38,72). 2/4/7/4 frames. Replaces the 0x72 goblin. |
 | `sprites/mage/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (40,74). 2/4/7/4 frames. Replaces the 0x72 mage. |
+| `sprites/rogue/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (40,74). 2/4/7/4 frames. Replaces the 0x72 rogue. |
 
 This is the first art in the project with **no upstream license at all** — not
 even CC0 attribution. It can be sold, relicensed, or redrawn freely. It is also
