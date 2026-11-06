@@ -183,10 +183,12 @@ function loadCfg(){
     clientId:Q.get("clientid")||s.clientId||"",
     token:(Q.get("token")||s.token||"").replace(/^oauth:/i,""),
     demo:Q.get("demo")==="1",
+    platform:Q.get("platform")||s.platform||"twitch",
   };
 }
 function saveCfg(){ try{ localStorage.setItem(CFGK,JSON.stringify(
-  {channel:CFG.channel,clientId:CFG.clientId,token:CFG.token})); }catch(e){} }
+  {channel:CFG.channel,clientId:CFG.clientId,token:CFG.token,
+   platform:CFG.platform})); }catch(e){} }
 
 /* ==================================================================
    SAVE
@@ -1404,6 +1406,46 @@ function chatConnect(){
     setTimeout(chatConnect, ircRetry*2000); };
 }
 
+/* ==================================================================
+   GAME EVENTS
+   The only way the outside world touches the game. Platforms translate
+   their own wire formats into these four calls and nothing else, so a
+   second platform is a new transport, not a change in here.
+================================================================== */
+const Game = {
+  chat(name, text, color){
+    const a = joinHero(name, color);
+    if (a.rec){ a.rec.msgs++; if (a.rec.msgs % 10 === 0) Save.put(); }
+    const t = (text||"").trim();
+    if (t[0] !== "!") return;
+    const [cmd, ...rest] = t.slice(1).split(/\s+/);
+    const c = cmd.toLowerCase(), arg = rest.join(" ");
+    if (["jump","dance","sit","wave","hat","stats","charge"].includes(c)) act(a,c);
+    else if (c==="color" || c==="colour") act(a,"color",arg);
+  },
+  follow(name){
+    spawnMonster(name);
+    log([{t:name,c:"c-h"},{t:" followed — joins the monsters",c:"c-v"}]);
+    toast(name+" FOLLOWED","var(--horde)");
+  },
+  sub(name){
+    const a=joinHero(name); a.look.hat="crown";
+    if(a.rec){ a.rec.hat="crown"; Save.put(); }
+    act(a,"dance");
+    log([{t:name,c:"c-l"},{t:" subscribed — crowned",c:"c-v"}]);
+    toast(name+" SUBSCRIBED","var(--loot)");
+  },
+  // a channel-points style redemption, matched on its title
+  redeem(name, title){
+    const t=(title||"").toLowerCase();
+    let act_="loot"; for(const r of REWARDS) if(r.re.test(t)){ act_=r.act; break; }
+    if(act_==="boss") spawnBoss(name);
+    else if(act_==="mob") spawnMonster(name,{tough:30});
+    else dropLoot(name);
+  },
+};
+
+/* Twitch IRC line -> Game.chat */
 function onChat(line){
   let tags={};
   if (line[0]==="@"){
@@ -1414,19 +1456,8 @@ function onChat(line){
   }
   const m=line.match(/^:([^!]+)![^ ]+ PRIVMSG #[^ ]+ :(.*)$/);
   if(!m) return;
-  const name=tags["display-name"]||m[1];
-  const text=m[2].trim();
-  const col=/^#[0-9a-f]{6}$/i.test(tags.color||"")?tags.color:null;
-
-  const a=joinHero(name,col);
-  if (a.rec){ a.rec.msgs++; if(a.rec.msgs%10===0) Save.put(); }
-
-  if (text[0]==="!"){
-    const [cmd,...rest]=text.slice(1).split(/\s+/);
-    const c=cmd.toLowerCase(), arg=rest.join(" ");
-    if(["jump","dance","sit","wave","hat","stats","charge"].includes(c)) act(a,c);
-    else if(c==="color"||c==="colour") act(a,"color",arg);
-  }
+  Game.chat(tags["display-name"]||m[1], m[2],
+            /^#[0-9a-f]{6}$/i.test(tags.color||"") ? tags.color : null);
 }
 
 /* ==================================================================
@@ -1495,28 +1526,34 @@ async function esSubscribe(){
   TW.ready=true;
   stat("Chat + events live on #"+CFG.channel+"\n"+out.join("\n"));
 }
+/* Twitch EventSub notification -> Game.* */
 function esEvent(type,ev){
   const name=ev.user_name||ev.user_login;
-  if(type==="channel.follow"){
-    spawnMonster(name);
-    log([{t:name,c:"c-h"},{t:" followed — joins the monsters",c:"c-v"}]);
-    toast(name+" FOLLOWED","var(--horde)"); return;
-  }
-  if(type==="channel.subscribe"){
-    const a=joinHero(name); a.look.hat="crown";
-    if(a.rec){ a.rec.hat="crown"; Save.put(); }
-    act(a,"dance");
-    log([{t:name,c:"c-l"},{t:" subscribed — crowned",c:"c-v"}]);
-    toast(name+" SUBSCRIBED","var(--loot)"); return;
-  }
-  if(type==="channel.channel_points_custom_reward_redemption.add"){
-    const title=((ev.reward&&ev.reward.title)||"").toLowerCase();
-    let a="loot"; for(const r of REWARDS) if(r.re.test(title)){ a=r.act; break; }
-    if(a==="boss") spawnBoss(name);
-    else if(a==="mob") spawnMonster(name,{tough:30});
-    else dropLoot(name);
-  }
+  if(type==="channel.follow")    return Game.follow(name);
+  if(type==="channel.subscribe") return Game.sub(name);
+  if(type==="channel.channel_points_custom_reward_redemption.add")
+    return Game.redeem(name, (ev.reward&&ev.reward.title)||"");
 }
+
+/* ==================================================================
+   PLATFORMS
+   Each entry owns one service's transport and calls Game.* with
+   normalised events. Adding YouTube or Kick means adding an entry
+   here and a button in setup — nothing in the game changes.
+================================================================== */
+const PLATFORMS = {
+  twitch: {
+    label: "Twitch",
+    needsTokenFor: "follows, subs and channel points",
+    connect(cfg){
+      chatConnect();                                   // anonymous, no token
+      if (cfg.clientId && cfg.token) eventsubConnect(); // optional extras
+    },
+  },
+  // youtube: { label:"YouTube", connect(cfg){ ... Game.chat(...) ... } },
+  // kick:    { label:"Kick",    connect(cfg){ ... } },
+};
+const PLATFORM = PLATFORMS[CFG.platform] || PLATFORMS.twitch;
 
 /* ==================================================================
    DEMO
@@ -1530,7 +1567,7 @@ function demoTick(dt){
   demoT-=dt; if(demoT>0) return;
   demoT=rnd(1.1,3);
   const n=pick(FAKE), r=Math.random();
-  if(r<.42){ const a=joinHero(n); if(a.rec) a.rec.msgs++; }
+  if(r<.42){ Game.chat(n, "hello"); }
   else if(r<.52) act(joinHero(n),"jump");
   else if(r<.60) act(joinHero(n),"dance");
   else if(r<.66) act(joinHero(n),"hat");
@@ -1554,9 +1591,8 @@ $("b-go").onclick=()=>{
   CFG.clientId=$("f-cid").value.trim();
   CFG.token=$("f-tok").value.trim().replace(/^oauth:/i,"");
   saveCfg(); demo=false;
-  stat("Connecting to chat…");
-  chatConnect();
-  if(CFG.clientId&&CFG.token) eventsubConnect();
+  stat("Connecting to "+PLATFORM.label+"…");
+  PLATFORM.connect(CFG);
 };
 $("b-demo").onclick=startDemo;
 $("b-wipe").onclick=()=>{ Save.wipe(); V.ents.length=0; V.props.length=0;
@@ -1590,7 +1626,7 @@ let last=performance.now();
 })(performance.now());
 
 if(CFG.demo) startDemo();
-else if(CFG.channel){ chatConnect(); if(CFG.clientId&&CFG.token) eventsubConnect(); }
+else if(CFG.channel){ PLATFORM.connect(CFG); }
 else openSetup();
 </script>
 </body>
