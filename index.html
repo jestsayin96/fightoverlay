@@ -1236,7 +1236,8 @@ function drawHat(c,hat,col){
 const CELL_W=112, CELL_H=120, ANCHOR_X=56, ANCHOR_Y=112;
 const SPRITE_DIR="sprites/dungeon/";
 
-const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian"];
+const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian",
+                      "ranger"];
 /* All eight monsters are now drawn here, so the 0x72 sheets are out of
    play entirely: they are still in sprites/dungeon and still listed in
    LICENSES.md, but nothing references them. Mixing them in had put 30px
@@ -1297,6 +1298,17 @@ defSprite("paladin",
 defSprite("cleric",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:40, ay:74, fh:56, dir:"sprites/cleric/"});
+
+/* The Ranger, 60px: between the paladin (62) and the rogue (56). The hook
+   is the bow, and it is the only hero whose attack clip is a ranged one -
+   nock, draw, loose, with the arrow drawn as a smear leaving the frame.
+   A drawn bow cannot be posed from the standing one, because parts never
+   rotate, so the bent string is a second picture of the bow entirely.
+   build_char.py put ax at 42 because the bow and the loosed arrow jut
+   right; the feet centre on 40. */
+defSprite("ranger",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:76, fh:60, dir:"sprites/ranger/"});
 MOB_SPRITES.forEach(m=>defSprite("mob_"+m,
   {idle:"mob_"+m+"_idle.png", walk:"mob_"+m+"_walk.png"}));
 

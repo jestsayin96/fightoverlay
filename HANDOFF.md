@@ -88,6 +88,7 @@ than a squash (see below).
 | barbarian | 62px | 80x80 | (40,74) |
 | cleric | 56px | 80x80 | (40,74) |
 | rogue | 56px | 80x80 | (40,74) |
+| ranger | 60px | 80x80 | (40,76) |
 | mob_skelet | 54px | 80x80 | (40,74) |
 | mob_goblin | 52px | 80x80 | (38,72) |
 | mob_orc_warrior | 62px | 80x80 | (40,74) |
