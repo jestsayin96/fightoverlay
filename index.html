@@ -167,10 +167,10 @@ const T = {
   bossHold:   1420,    // a boss plants itself here and waits
   engage:     64,      // how close before they stop and swing
   maxHeroes:  26,
-  maxMobs:    16,
+  maxMobs:    22,
   march:      78,      // px/sec advance
-  idleSpawn:  10,      // dead air: a wandering monster this often...
-  idleFloor:  4,       // ...while monsters are under this many
+  idleSpawn:  5,       // dead air: a wandering monster this often...
+  idleFloor:  8,       // ...while monsters are under this many
   idleFor:    1800,    // 30 min silent and a hero wanders home
   showLevels: true,
 };
@@ -291,7 +291,7 @@ function joinHero(name, chatColor){
   a.rate  = 1.0;
   a.ab    = ABILITIES[hash(a.key+"spell") % ABILITIES.length];
   a.cls   = CLASS_OF[a.ab.id] || "knight";
-  a.abcd  = rnd(4, a.ab.cd);
+  a.abcd  = rnd(0.5, a.ab.cd*0.5);
   V.ents.push(a);
   return a;
 }
@@ -398,7 +398,7 @@ function foesNear(e,x,r){
 
 function cast(e, foe){
   const ab = (e.rec && e.rec.level>=10 && Math.random()<.22) ? METEOR : e.ab;
-  e.abcd = ab.cd * (0.85 + Math.random()*0.4);
+  e.abcd = ab.cd * 0.45 * (0.8 + Math.random()*0.45);   // cast roughly twice as often
   e.cast = .5;
   const L = ab.dmg * (1 + (e.rec ? (e.rec.level-1)*0.14 : 0));
 
@@ -523,7 +523,15 @@ function nearestFoe(e){
 
 function hit(src, dst){
   const dmg = src.atk * (src.isBoss ? 1 : (0.85 + Math.random()*0.3));
-  dst.hp -= dmg; dst.flash = .22; src.swing = 1;
+  dst.hp -= dmg; dst.flash = .28; src.swing = 1;
+  // the clash itself: a slash arc where the weapon lands, sparks, a number
+  const mx = (src.x + dst.x)/2, my = dst.y - 34;
+  fx({k:"slash", x:mx, y:my, dir:Math.sign(dst.x-src.x)||1,
+      col: src.side===1 ? "#eaf7f4" : "#ffb9c6", life:.2});
+  fx({k:"impact", x:mx, y:my, col: src.side===1 ? "#cfeee8" : "#ff8fa3", life:.3,
+      n: src.isBoss ? 10 : 6, r: src.isBoss ? 60 : 34});
+  num(dst.x, dst.y-74, Math.round(dmg), src.side===1 ? "#dff7f2" : "#ff9fb0");
+  if (src.isBoss) V.shake = Math.max(V.shake, 7);
   if (dst.hp <= 0) down(src, dst);
 }
 
@@ -606,7 +614,7 @@ function step(dt){
     const gap = foe ? Math.abs(foe.x - e.x) : Infinity;
 
     /* heroes fire their signature from range, not just in melee */
-    if (e.side===1 && e.ab && foe && gap < 760){
+    if (e.side===1 && e.ab && foe && gap < 1100){
       e.abcd -= dt;
       if (e.abcd <= 0) cast(e, foe);
     }
@@ -770,6 +778,13 @@ function drawSprite(c, e, set){
   if (!a.ready) a = set.idle, f = 0;                     // fall back while loading
   c.save();
   c.imageSmoothingEnabled = false;
+  // Grok's walk frames barely differ, so a plain slide reads as skating.
+  // A bob and a slight tilt on the stride give it some sense of footfall
+  // until a sheet with real leg movement replaces it.
+  if (e.moving && a === set.walk){
+    c.translate(0, -Math.abs(Math.sin(e.walk))*2.5);
+    c.rotate(Math.sin(e.walk*0.5) * 0.05 * e.face);
+  }
   c.scale(e.face, 1);
   c.drawImage(a.img, f*CELL_W, 0, CELL_W, CELL_H,
               -ANCHOR_X, -ANCHOR_Y, CELL_W, CELL_H);
@@ -1283,6 +1298,29 @@ function drawFx(c){
           c.fillRect(f.x+Math.cos(a)*r-2, f.y+Math.sin(a)*r*0.6-2-k*20, 4,4);
         }
         break;
+      case "slash":{
+        c.globalAlpha = fade;
+        c.strokeStyle = f.col; c.lineWidth = 7*fade + 2; c.lineCap="round";
+        c.shadowColor = f.col; c.shadowBlur = 12;
+        const r = 26 + k*22, a0 = -1.1, a1 = 1.1;
+        c.beginPath();
+        c.arc(f.x, f.y, r, a0 + (f.dir<0?Math.PI:0), a1 + (f.dir<0?Math.PI:0));
+        c.stroke();
+        c.lineWidth = 2; c.strokeStyle = "#ffffff"; c.stroke();
+        break; }
+      case "impact":{
+        c.globalAlpha = fade;
+        c.fillStyle = f.col;
+        for(let i=0;i<f.n;i++){
+          const a = (i/f.n)*6.283 + f.x*0.07;
+          const d = f.r*k;
+          const sx = f.x + Math.cos(a)*d, sy = f.y + Math.sin(a)*d*0.6;
+          const sz = Math.max(1, 4*fade);
+          c.fillRect(sx-sz/2, sy-sz/2, sz, sz);
+        }
+        c.globalAlpha = fade*0.8; c.fillStyle="#ffffff";
+        c.beginPath(); c.arc(f.x,f.y, 13*(1-k)+3, 0, 6.283); c.fill();
+        break; }
       case "num":
         c.globalAlpha=Math.min(1,fade*1.6);
         c.font='700 26px "Silkscreen",monospace';
