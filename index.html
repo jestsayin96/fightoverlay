@@ -1168,6 +1168,14 @@ defSprite("boss_ogre",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:112, ch:112, ax:56, ay:102, fh:88, dir:"sprites/ogre/"});
 
+/* The Demon, 90px: exactly the 0x72 bosses' height. build_char.py put its
+   anchor at ax 46 because the wing drags the bounding box 10px left of
+   where the demon actually stands; ax is overridden to the centre of its
+   feet, the same correction the barbarian's axe needed. */
+defSprite("boss_demon",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:112, ch:112, ax:58, ay:102, fh:90, dir:"sprites/demon/"});
+
 function spriteSetFor(e){
   const set = SPRITES[e.spriteKey];
   return (set && set.idle && set.idle.ready) ? set : null;
