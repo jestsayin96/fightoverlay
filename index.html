@@ -1176,6 +1176,14 @@ defSprite("boss_demon",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:112, ch:112, ax:58, ay:102, fh:90, dir:"sprites/demon/"});
 
+/* The Big Zombie, 88px. Its arms balance, so build_char.py's bounding-box
+   centre was already the torso centre and ax needed no correction.
+   With this the three bosses are all original art and nothing on the
+   field is 0x72 any more. */
+defSprite("boss_bigzombie",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:112, ch:112, ax:58, ay:102, fh:88, dir:"sprites/bigzombie/"});
+
 function spriteSetFor(e){
   const set = SPRITES[e.spriteKey];
   return (set && set.idle && set.idle.ready) ? set : null;

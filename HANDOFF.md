@@ -26,8 +26,14 @@ licence.
 | rogue | 56px | 80x80 | (40,74) |
 | mob_skelet | 54px | 80x80 | (40,74) |
 | mob_goblin | 52px | 80x80 | (38,72) |
+| boss_demon | 90px | 112x112 | (58,102) |
+| boss_ogre | 88px | 112x112 | (56,102) |
+| boss_bigzombie | 88px | 112x112 | (58,102) |
 
-Each has idle (2), walk (4), attack (7) and death (4) frames.
+Each has idle (2), walk (4), attack (7) and death (4) frames. The three
+bosses are drawn on a 56x56 canvas rather than 40x40, so they export to a
+112x112 cell; `defSprite`'s geometry argument is what lets them share a
+lane with the 80x80 heroes.
 
 ### Drawing a new one
 
@@ -50,11 +56,23 @@ Each has idle (2), walk (4), attack (7) and death (4) frames.
    re-renders at 2x.
 6. Register with `defSprite(key, files, geo)`. **Check two numbers the
    script gives you rather than trusting them:** `ax` is the bounding-box
-   centre, which is wrong when a weapon juts out - use the torso centre;
-   and the figure height is whatever you happened to draw, so compare it
-   against the table above before accepting it.
+   centre, which is wrong whenever anything juts out to one side - a
+   weapon, or the Demon's wing, which dragged `ax` 10px off - so use the
+   centre of the feet; and the figure height is whatever you happened to
+   draw, so compare it against the table above before accepting it.
 7. Monsters: add the name to `MOB_SPRITES` (and drop it from
-   `MOB_SPRITES_RETIRED`).
+   `MOB_SPRITES_RETIRED`). Bosses: add a `defSprite` *after* the
+   `BOSS_SPRITES.forEach` loop so it overrides the 0x72 entry that loop
+   makes.
+
+**Two mistakes that cost the most time, both the same shape.** An edge
+that steps sideways faster than one pixel per row leaves the outline
+behind and the audit fills with PX007 gaps - the Demon's wing stepped 2
+per row and produced 103 of them, fixed by giving each step a two-wide
+outline tread. And a key map cannot hold two letters that differ only in
+case (`S`/`s`, `R`/`r`): the write is rejected outright. Drawing the Big
+Zombie with both in mind brought it in at 6 findings against the Demon's
+118.
 
 `animOf` plays real `attack`/`death` clips when a set has them and
 returns `real:true`; `drawSprite` then skips the lean-and-rotate faking
@@ -129,9 +147,10 @@ Meteor unlocks at level 10. Damage scales with level. The spell also decides
 the character's class.
 
 ### Art
-`sprites/dungeon/` — 0x72 "DungeonTileset II", CC0. Six hero classes, eight
-monsters, three bosses, upscaled 3x onto a 112x120 cell with the feet anchored
-at (56,112) so nothing jumps between animations.
+`sprites/dungeon/` — 0x72 "DungeonTileset II", CC0. Still vendored, no longer
+drawn: every hero, monster and boss on the field is original art. Six monster
+names sit in `MOB_SPRITES_RETIRED` in `index.html` and are out of rotation
+until they are redrawn; nothing else references the pack.
 
 `sprites/knight_*.png` — generated, unused. Kept as a reference for the
 extraction pipeline. Its walk frames differ by only 3-6% of silhouette, so the

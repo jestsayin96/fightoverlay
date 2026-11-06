@@ -37,15 +37,23 @@ fit for anything sellable. Don't use it here.
 | `sprites/paladin/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (40,74). 2/4/7/4 frames. Replaces the 0x72 paladin. |
 | `sprites/cleric/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (40,74). 2/4/7/4 frames. Replaces the 0x72 cleric. All six hero classes are now original. |
 | `sprites/skeleton/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (40,74). 2/4/7/4 frames. Replaces the 0x72 skeleton. |
+| `sprites/ogre/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 56x56 art exported at 2x -> 112x112 cells, feet at (56,102), 88px tall. 2/4/7/4 frames. Replaces the 0x72 ogre boss. |
+| `sprites/demon/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 56x56 art exported at 2x -> 112x112 cells, feet at (58,102), 90px tall. 2/4/7/4 frames. Replaces the 0x72 demon boss. Eight parts, including a wing. |
+| `sprites/bigzombie/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 56x56 art exported at 2x -> 112x112 cells, feet at (58,102), 88px tall. 2/4/7/4 frames. Replaces the 0x72 big zombie boss. All three bosses are now original. |
 
 This is the first art in the project with **no upstream license at all** — not
 even CC0 attribution. It can be sold, relicensed, or redrawn freely. It is also
 the first set with genuine `attack` and `death` clips rather than the borrowed
 `hurt` cell the 0x72 pack forces.
 
-The long-term goal is to replace every 0x72 sprite this way. Until then the
-two packs coexist: `defSprite` takes a geometry argument so sets with
-different cell sizes and foot anchors sit on the same lane.
+That goal is now met for everything the overlay actually draws. All six
+hero classes, both monsters in rotation and all three bosses are original.
+No 0x72 sprite is loaded on the field any more. The pack is still vendored
+in `sprites/dungeon/`, and six monster names sit in `MOB_SPRITES_RETIRED`
+in `index.html` waiting to be redrawn before they can return to rotation —
+until then nothing references them. `defSprite` still takes a geometry
+argument, which is what let the 80x80 heroes and the 112x112 bosses share
+one lane while the replacement was under way.
 
 ## Sprites
 
