@@ -1245,7 +1245,7 @@ const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian",
    by silhouette first and colour second, so a line of them does not read
    as one sprite repeated even before the runtime palette swap. */
 const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp",
-                       "chort","zombie","masked_orc","swampy"];
+                       "chort","zombie","masked_orc","swampy","wraith"];
 const BOSS_SPRITES  = ["demon","ogre","bigzombie"];
 
 const SPRITES = {};
@@ -1381,6 +1381,17 @@ defSprite("mob_masked_orc",
 defSprite("mob_swampy",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:40, ay:74, fh:58, dir:"sprites/swampy/"});
+
+/* The Wraith, 56px. MONSTER_KINDS has named Wraiths since the beginning
+   with no sprite to match, so a monster called one looked like a goblin.
+   It is the only thing on the field with no legs: the shroud tapers to a
+   wisp, so its walk is a drift that bobs rather than a leg cycle, and its
+   death shrinks it to nothing instead of toppling it. Neither the
+   bounding box nor the wisp tip gives a usable ax - the box says 42, the
+   tip 38 - so it takes the figure's own axis, 40. */
+defSprite("mob_wraith",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:76, fh:56, dir:"sprites/wraith/"});
 BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
   {idle:"boss_"+b+"_idle.png", walk:"boss_"+b+"_walk.png"}));
 
