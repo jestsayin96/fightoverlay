@@ -1001,6 +1001,11 @@ function step(dt){
       /* a breath of life once planted — not a wander that restacks them */
       e.y += Math.sin(V.t * 1.6 + e.id) * 4 * dt;
     }
+    /* A swing already in flight keeps facing its target. Marching sets
+       face from the direction of travel, so a fighter that stepped to a
+       new depth lane mid-swing turned away and played its attack
+       backwards. Rare (4 samples in 24k) but unmistakable when it hits. */
+    if (e.swing > 0 && foe) e.face = Math.sign(foe.x - e.x) || e.face;
     e.y = clamp(e.y, T.stripTop, T.stripBot);
     unpile(e, dt);
 
