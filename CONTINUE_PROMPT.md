@@ -34,12 +34,16 @@ Constraints that matter:
 
 What I want next, highest value first:
 
-1. **Fix the clumping.** Characters pile into a heap at one point with
-   nameplates stacking. They should spread into a line.
-2. **Palette-swap per viewer** so every knight doesn't look identical. The
-   sheets use a tight known palette.
-3. **Attack and death animations.** The current pack has neither; both are
-   faked. Either find CC0 art that includes them or improve the fake.
+1. **Watch a real stream, then retune.** `fileGap`, `frontGap`, `heroHold`
+   and `mobHold` are guesses until chat is actually moving over gameplay.
+2. **A stage counter** that survives the month, not just the browser session
+   of one viewer. Kills already exist per person; the village has no campaign.
+3. **Attack frames drawn, not posed,** if a CC0 sheet can be re-anchored to
+   112×120 at (56,112) without changing the silhouette. Do not mix a second
+   art style, and do not regenerate walk cycles with an image model.
+
+The clump, the per-viewer armor dye, and the posed strike / topple are in.
+Disagree in the reply rather than quietly reverting them.
 
 When you change anything animated, **verify it in motion** — capture several
 consecutive frames and check the character actually moves. A sign error made

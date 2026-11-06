@@ -46,7 +46,14 @@ With a token connected:
 
 ## Chat commands
 
-`!jump` `!dance` `!wave` `!sit` `!hat` `!color red` `!stats`
+Actions: `!jump` `!dance` `!wave` `!sit` `!hug name` `!attack name` `!bomb` `!explode` `!hat` `!color red` `!stats` `!hideavatar`
+
+Points: `!points` `!shop` `!buy crown` `!give name 10` `!leaderboard` `!avatar mage` `!random`
+
+Minigames: `!duel name 10` then `!accept` · `!slots 10` · `!boss` · `!royale` then `!join` · `!basketball` then `!shoot 5`
+
+Floor: `!lounge` parks the monsters so chat just hangs out. `!war` brings the horde back.
+Mods: `!mass dance` (also hug, attack, bomb, explode, jump).
 
 ## Abilities
 

@@ -9,6 +9,28 @@ bottom of the frame. Runs as a single OBS Browser Source.
 
 ---
 
+
+## Art pipeline (Pixelwright -> overlay)
+
+The knight is original art and the template for replacing the rest.
+
+1. Draw the rig in Pixelwright (parts + variants). Parts **cannot rotate**, so a
+   sword swing needs a redrawn arm/blade per key pose, plus `smear` variants for
+   the blur. Children inherit the parent's `dx/dy`, so keep child offsets to 1-2px
+   or limbs detach.
+2. `project_audit` until clean. Stacked outline rows where two parts meet are the
+   big one: make the lower row a dark shade of the fill, not a second outline.
+3. `export_build` preset `png-frames` at **scale 3**, then run
+   `build_knight.py`: it recovers the true 40x40 pixels (asserting the export was
+   a clean block upscale) and re-renders at **2x** so figures match the 0x72
+   heroes' ~60px height. Exporting straight at 3x makes them 99px — far too big.
+4. Drop the strips in `sprites/<name>/` and register with `defSprite(key, files, geo)`.
+
+`animOf` plays real `attack`/`death` clips when a set has them and returns
+`real:true`; `drawSprite` then skips the lean-and-rotate faking and the drawn
+slash arc, which would otherwise double up on the blade's own smear.
+
+
 ## 1. What exists
 
 ### Delivery
@@ -68,6 +90,10 @@ character slid instead of walking.
 
 ### Chat commands
 `!jump` `!dance` `!wave` `!sit` `!hat` `!color red` `!stats`
+`!hug` `!attack` `!bomb` `!explode` `!duel` `!accept` `!slots`
+`!boss` `!royale` `!join` `!basketball` `!shoot` `!points` `!shop` `!buy`
+`!leaderboard` `!avatar` `!hideavatar` `!lounge` `!war`
+`!mass dance` is moderator / broadcaster only.
 
 ---
 
@@ -75,29 +101,41 @@ character slid instead of walking.
 
 Ordered by how much they hurt.
 
-### Characters clump
-Everyone advances to the same point and piles into a heap, nameplates stacking
-six deep. Needs per-entity spacing — a desired separation from neighbours, or
-staggered hold positions — so they form a line.
+### Characters used to clump — formation is in
+`lineGoal` gives every fighter a file and one of two lanes. With nothing to
+fight, a side spreads back from its hold line. In a fight the front file
+stops `frontGap` from the enemy and each file behind steps back by up to
+`fileGap`, compressed only when the lane runs out of room. `unpile` is a
+last-resort nudge for two bodies on the same pixel. Nameplates step sideways
+before they stack upward. Still worth a look on a real stream: a very full
+lane (26 heroes) gets tight, on purpose, rather than walking off screen.
 
-### No attack or death animation
-The CC0 pack ships idle, run and one hurt frame. An attack currently lunges
-forward through the walk frames while the slash arc and sparks carry the hit;
-death holds the hurt pose and topples. Readable, but a workaround.
+### Attack and death are still performed, not drawn
+The CC0 pack still has no attack or death cells. A second pack was not
+mixed in — different proportions would break the 112×120 anchor, and
+generated cycles already failed the walk test. What plays now:
 
-### The field is lopsided
-Heroes crowd one spot while stragglers trail behind and monsters sit near the
-right edge. `heroHold` / `mobHold` want retuning against a real stream.
+- **Strike:** windup (lean back on idle), contact (lunge onto the hurt
+  frame plus a local slash), recover. `e.swing` decays slower so the three
+  beats read.
+- **Hero down:** topples backward over ~0.4s, then crawls off with dust.
+- **Monster death:** topples, squashes, and bursts into pixels.
 
-### Every viewer of a class looks identical
-A sprite is a fixed image, so all knights are the same knight. The fix is
-runtime palette-swapping: the sheets use a tight known palette, so remapping
-armour colours per username would give everyone a distinct look from one sheet.
+### The field still wants a live-stream pass
+Hold lines and `fileGap` are tuned for a 1920×1080 source, not for how this
+reads over bright gameplay. Nobody has watched it with real chat yet.
+
+### Viewers of a class no longer share one dye
+On load, each sheet's dominant saturated hue (the armor) is remapped toward
+that viewer's `look.shirt` (heroes) or `look.skin` (monsters). Outline,
+skin, hair and plumes stay, so a knight is still a knight. `!color red`
+changes the dye because it already writes `look.shirt`. Bosses are not
+dyed. Cached per sheet + hue.
 
 ### Untested on a live stream
-Nobody has watched this with real chat moving. Readability over bright
-gameplay, pacing during quiet chat, and whether it distracts the streamer are
-all unknown.
+Readability over bright gameplay, pacing during quiet chat, and whether it
+distracts the streamer are all still unknown.
+
 
 ---
 

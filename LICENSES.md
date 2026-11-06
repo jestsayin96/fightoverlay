@@ -24,6 +24,22 @@ This rules out the Liberated Pixel Cup (LPC) asset set and its character
 generator, which is GPL-3.0 with CC-BY-SA art. It is a good set and a poor
 fit for anything sellable. Don't use it here.
 
+
+## Original art — owned outright
+
+| Asset | Origin | License | Notes |
+|---|---|---|---|
+| `sprites/knight/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (36,74). 2/4/7/4 frames. |
+
+This is the first art in the project with **no upstream license at all** — not
+even CC0 attribution. It can be sold, relicensed, or redrawn freely. It is also
+the first set with genuine `attack` and `death` clips rather than the borrowed
+`hurt` cell the 0x72 pack forces.
+
+The long-term goal is to replace every 0x72 sprite this way. Until then the
+two packs coexist: `defSprite` takes a geometry argument so sets with
+different cell sizes and foot anchors sit on the same lane.
+
 ## Sprites
 
 | File | Source | License | Notes |

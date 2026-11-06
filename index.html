@@ -67,6 +67,19 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;
   text-shadow:0 3px 18px rgba(0,0,0,.95);transition:opacity .22s,transform .22s}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
+#mg{position:absolute;left:50%;top:78px;transform:translateX(-50%);
+  min-width:320px;max-width:920px;padding:8px 16px;text-align:center;
+  font-size:13px;letter-spacing:.14em;color:var(--loot);display:none;
+  text-shadow:0 2px 10px rgba(0,0,0,.8)}
+#mg.on{display:block}
+#slots{position:absolute;right:26px;top:36px;width:300px;padding:10px 12px 12px;display:none}
+#slots.on{display:block}
+#slots .cap{font-size:9px;letter-spacing:.16em;color:var(--dim);margin-bottom:6px}
+#reels{display:flex;gap:8px;justify-content:center}
+#reels b{font-family:var(--log);font-size:30px;font-weight:400;color:var(--loot);
+  background:#060b0f;border:1px solid var(--edge);padding:4px 0;width:84px;text-align:center}
+#slotsub{font-family:var(--log);font-size:18px;color:var(--dim);text-align:center;margin-top:6px}
+
 #setup{position:fixed;inset:0;background:rgba(4,8,11,.94);display:none;place-items:center;
   pointer-events:auto;overflow:auto;padding:24px}
 #setup.on{display:grid}
@@ -74,6 +87,7 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;
   border-radius:6px;padding:26px}
 .card h1{font-size:16px;letter-spacing:.08em;margin:0 0 6px;color:var(--teal)}
 .card .sub{font-family:var(--log);font-size:18px;line-height:1.5;color:var(--dim);margin:0 0 6px}
+.card .cmds{font-size:16px;color:var(--ink);background:#102028;padding:8px 10px}
 .card .sec{font-size:9px;letter-spacing:.16em;color:var(--teal);
   margin:22px 0 2px;border-top:1px solid #16262c;padding-top:16px}
 .card label{display:block;font-size:9px;letter-spacing:.14em;color:var(--dim);margin:12px 0 5px}
@@ -100,7 +114,7 @@ button:hover{filter:brightness(1.12)}
 
   <div id="hdr" class="panel">
     <div class="top">
-      <span class="ttl">THE JESTER'S VILLAGE</span>
+      <span class="ttl" id="ttl">THE JESTER'S VILLAGE</span>
       <span class="st" id="slain">0 SLAIN</span>
     </div>
     <div class="arm">
@@ -122,13 +136,21 @@ button:hover{filter:brightness(1.12)}
   </div>
 
   <div id="toast"></div>
+  <div id="mg" class="panel"></div>
+  <div id="slots" class="panel">
+    <div class="cap">SLOTS</div>
+    <div id="reels"></div>
+    <div id="slotsub"></div>
+  </div>
 </div>
 
 <div id="setup">
   <div class="card">
     <h1>JESTER'S VILLAGE — SETUP</h1>
-    <p class="sub">Chat avatars need nothing but your channel name. Everything below
-      the line is optional and only adds follows + channel points.</p>
+    <p class="sub">Chat avatars need nothing but your channel name. Loyalty points,
+      duels, slots, royale and basketball all run from chat. Follows and channel
+      points below are optional.</p>
+    <p class="sub cmds">!dance !hug name !attack name !bomb !explode · !duel name 10 then !accept · !slots 10 · !boss · !royale !join · !basketball !shoot 5 · !points !shop !buy crown · !leaderboard · !avatar mage · !mass dance (mods) · !lounge !war</p>
 
     <label for="f-chan">TWITCH CHANNEL</label>
     <input id="f-chan" placeholder="JestSayin96" autocomplete="off" spellcheck="false">
@@ -147,7 +169,7 @@ button:hover{filter:brightness(1.12)}
     <div id="status"></div>
   </div>
 </div>
-<div id="hint">S setup · D demo · B boss · M monster · H hero · L loot</div>
+<div id="hint">S setup · D demo · G hangout · B boss · R royale · K hoop</div>
 
 <script>
 "use strict";
@@ -173,6 +195,9 @@ const T = {
   idleFloor:  8,       // ...while monsters are under this many
   idleFor:    1800,    // 30 min silent and a hero wanders home
   showLevels: true,
+  fileGap:    96,      // how far back each rank stands when there is room
+  frontGap:   58,      // front rank stops this far from the enemy
+  backdrop:   false,   // preview only — OBS stays transparent
 };
 
 let CFG = loadCfg();
@@ -183,6 +208,7 @@ function loadCfg(){
     clientId:Q.get("clientid")||s.clientId||"",
     token:(Q.get("token")||s.token||"").replace(/^oauth:/i,""),
     demo:Q.get("demo")==="1",
+    backdrop:Q.get("backdrop")==="1",
     platform:Q.get("platform")||s.platform||"twitch",
   };
 }
@@ -200,7 +226,10 @@ const Save = {
   get(name){
     const k=name.toLowerCase();
     if(!this.d[k]) this.d[k]={ name, msgs:0, kills:0, deaths:0, level:1, xp:0,
-                               hat:null, color:null, first:Date.now() };
+                               hat:null, color:null, first:Date.now(),
+                               coins:40, owned:[], klass:null, hidden:false };
+    if(this.d[k].coins==null) this.d[k].coins=40;
+    if(!this.d[k].owned) this.d[k].owned=[];
     this.d[k].name=name;
     return this.d[k];
   },
@@ -262,7 +291,8 @@ function mobLook(name){
    WORLD
 ================================================================== */
 const V = { ents:[], props:[], boss:null, t:0, slain:0, lost:0,
-            idleT:0, mobSeq:0, fx:[], shots:[], clouds:[], shake:0 };
+            idleT:0, mobSeq:0, fx:[], shots:[], clouds:[], shake:0,
+            bombs:[], balls:[], cue:[] };
 let nid=1;
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const pick=a=>a[(Math.random()*a.length)|0];
@@ -292,6 +322,7 @@ function joinHero(name, chatColor){
   a.ab    = ABILITIES[hash(a.key+"spell") % ABILITIES.length];
   a.cls   = CLASS_OF[a.ab.id] || "knight";
   a.spriteKey = a.cls;
+  if (rec.klass){ a.cls = rec.klass; a.spriteKey = rec.klass; }
   a.abcd  = rnd(0.5, a.ab.cd*0.5);
   V.ents.push(a);
   return a;
@@ -377,7 +408,7 @@ function act(a, what, arg){
       break; }
     case "stats":
       if (a.rec) log([{t:a.name,c:"c-t"},{t:" — lv"+a.rec.level+" · "+a.rec.kills+
-        " kills · "+a.rec.deaths+" deaths",c:"c-v"}]);
+        " kills · "+a.rec.deaths+" deaths · "+(a.rec.coins||0)+" pts",c:"c-v"}]);
       break;
   }
 }
@@ -515,6 +546,23 @@ function stepAbilities(dt){
    SIM — two armies, left vs right
 ================================================================== */
 function nearestFoe(e){
+  if (MG.kind==="hoop" || MG.kind==="royale-join") return null;
+  if (SCENE==="lounge" && MG.kind!=="royale" && MG.kind!=="duel") return null;
+  if (MG.kind==="duel"){
+    if (e!==MG.a && e!==MG.b) return null;
+    const o = e===MG.a ? MG.b : MG.a;
+    return (o && o.alive && o.state!=="down") ? o : null;
+  }
+  if (MG.kind==="royale"){
+    if (!e.ff || e.state==="down") return null;
+    let best=null, bd=Infinity;
+    for (const o of V.ents){
+      if (o===e || !o.ff || !o.alive || o.state==="down") continue;
+      const d=Math.abs(o.x-e.x);
+      if (d<bd){ bd=d; best=o; }
+    }
+    return best;
+  }
   let best=null, bd=Infinity;
   for (const o of V.ents){
     if (!o.alive || o.side===e.side || o.state==="down") continue;
@@ -553,6 +601,7 @@ function down(src, dst){
   }
   if (dst.side === -1){
     dst.alive=false; dst.fading=V.t; V.slain++;
+    fx({k:"shatter", x:dst.x, y:dst.y-28, col: dst.look&&dst.look.skin || "#ff4d6d", life:.55});
     if (src.side===1 && src.rec){
       src.rec.kills++;
       const up = Save.xp(src.name, 2);
@@ -562,46 +611,163 @@ function down(src, dst){
     }
   } else {
     // heroes go down, then walk back on from the left
-    dst.state="down"; dst.stateT=9; V.lost++;
+    dst.state="down"; dst.stateT=9; dst.fallT=0.42; dst.dust=0.15; V.lost++;
+    if (MG.kind==="royale" && dst.ff) dst.ff=false;
     if (dst.rec){ dst.rec.deaths++; Save.put(); }
     log([{t:dst.name,c:"c-t"},{t:" was knocked down by ",c:"c-v"},{t:src.name,c:"c-h"}]);
+  }
+}
+
+function sideMates(e){
+  const list=[];
+  for (const o of V.ents)
+    if (o.alive && o.side===e.side && !o.isBoss && o.state!=="down") list.push(o);
+  list.sort((a,b)=>a.id-b.id);
+  return list;
+}
+
+function leadingX(side){
+  let lead = side===1 ? -1e9 : 1e9, any=false;
+  for (const o of V.ents){
+    if (!o.alive || o.side!==side || o.isBoss || o.state==="down") continue;
+    any=true;
+    lead = side===1 ? Math.max(lead, o.x) : Math.min(lead, o.x);
+  }
+  return any ? lead : (side===1 ? T.heroGate : T.mobGate);
+}
+
+/* Two lanes of feet inside the strip, files stepped back along x so a
+   crowd becomes a line. The nose of the line walks toward the enemy;
+   everyone else slots in behind that nose, so they spread while
+   marching instead of arriving as one heap. */
+function lineGoal(e, foe){
+  if (e.isBoss){
+    const y=(T.stripTop+T.stripBot)/2;
+    if (!foe) return {x:T.bossHold, y};
+    return {x:foe.x - e.side*(T.engage+8), y};
+  }
+  const mates=sideMates(e);
+  const n=Math.max(1, mates.length);
+  let i=0;
+  for (let k=0;k<mates.length;k++) if (mates[k].id===e.id) i=k;
+  const lane=i%2;
+  const file=Math.floor(i/2);
+  const files=Math.max(1, Math.ceil(n/2));
+  const y=lane===0 ? T.stripTop+26 : T.stripBot-16;
+  const back=lane===0 ? 0 : 16;
+  const hold=e.side===1 ? T.heroHold : T.mobHold;
+  const desired = foe ? foe.x - e.side*T.frontGap : hold;
+  const lead=leadingX(e.side);
+  let nose = lead + e.side*40;
+  if (e.side===1) nose=Math.min(nose, desired);
+  else nose=Math.max(nose, desired);
+  /* trail back toward the gate you entered from, not into the crowd */
+  const tailLimit = e.side===1 ? T.heroGate-180 : T.mobGate+180;
+  const tailRoom = Math.max(48, e.side===1 ? nose-tailLimit : tailLimit-nose);
+  const gap = files<=1 ? 0 : Math.min(T.fileGap, tailRoom / Math.max(1, files-1));
+  return {x: nose - e.side*(file*gap + back), y};
+}
+
+function unpile(e, dt){
+  if (e.isBoss) return;
+  for (const o of V.ents){
+    if (o===e || !o.alive || o.state==="down" || o.isBoss || o.side!==e.side) continue;
+    let dx=e.x-o.x;
+    if (Math.abs(dx)<26 && Math.abs(e.y-o.y)<20){
+      if (dx===0) dx=e.id<o.id?-1:1;
+      e.x += Math.sign(dx)*T.march*0.65*dt;
+    }
   }
 }
 
 function step(dt){
   V.t += dt;
 
-  /* dead air: send in a wanderer from the right */
-  V.idleT += dt;
-  if (V.idleT >= T.idleSpawn){
-    V.idleT = 0;
-    if (mobs().length < T.idleFloor) spawnMonster(null);
+  /* dead air: send in a wanderer from the right — not during hangout or a minigame */
+  if (SCENE!=="war" || MG.kind) V.idleT = 0;
+  else {
+    V.idleT += dt;
+    if (V.idleT >= T.idleSpawn){
+      V.idleT = 0;
+      if (mobs().length < T.idleFloor) spawnMonster(null);
+    }
   }
 
   for (const e of V.ents){
     if (!e.alive) continue;
     if (e.flash>0) e.flash -= dt;
-    if (e.swing>0) e.swing -= dt*3.2;
+    if (e.swing>0) e.swing -= dt*2.35;
     if (e.vy!==0 || e.gy<0){
       e.vy += 900*dt; e.gy += e.vy*dt;
       if (e.gy>=0){ e.gy=0; e.vy=0; }
     }
     e.stateT -= dt;
 
-    /* knocked down — crawl back to your own edge and return */
+    /* knocked down — topple first, then crawl off your own edge */
     if (e.state === "down"){
-      e.x -= e.side * T.march * 1.6 * dt;
+      if ((e.fallT||0) > 0){
+        e.fallT -= dt;
+        e.moving = false;
+      } else {
+        e.x -= e.side * T.march * 0.9 * dt;
+        e.walk += dt * 7;
+        e.moving = true;
+        e.dust = (e.dust||0) - dt;
+        if (e.dust <= 0){
+          e.dust = 0.28;
+          fx({k:"impact", x:e.x, y:e.y+2, col:"#c4b8a4", life:.22, n:3, r:12});
+        }
+      }
       if (e.stateT <= 0){
-        e.state="march"; e.hp=e.maxHp;
+        e.state="march"; e.hp=e.maxHp; e.fallT=0;
         e.x = e.side===1 ? T.heroGate : T.mobGate;
-        e.y = rnd(T.stripTop,T.stripBot);
+        e.y = rnd(T.stripTop, T.stripBot);
       }
       continue;
     }
 
+    /* a slap launches you; flying off the strip respawns you at the gate */
+    if (e.stun>0 && e.state!=="down"){
+      e.stun -= dt;
+      e.moving = false;
+      if (e.kb){
+        e.x += e.kb*dt;
+        e.kb *= Math.exp(-2.4*dt);
+        if (Math.abs(e.kb)<20) e.kb=0;
+      }
+      if (e.x<-40 || e.x>1960){ yeet(e); continue; }
+      e.y = clamp(e.y, T.stripTop, T.stripBot);
+      if (e.stun<=0) e.state="march";
+      continue;
+    }
+
+    /* walk over to hug or smack someone, then resolve */
+    if (e.intent && e.state!=="down"){
+      const g=e.intent;
+      const live=V.ents.find(o=>o.id===g.tid && o.alive && o.state!=="down");
+      if (!live || V.t>g.until){ e.intent=null; }
+      else {
+        g.x = live.x + (e.x<live.x ? -40 : 40);
+        g.y = live.y;
+        const dx=g.x-e.x, dy=g.y-e.y;
+        if (Math.abs(dx)>22 || Math.abs(dy)>14){
+          const sx=T.march*1.45*dt;
+          e.x += clamp(dx,-sx,sx);
+          e.y += clamp(dy,-sx*0.75,sx*0.75);
+          if (Math.abs(dx)>4) e.face=Math.sign(dx);
+          e.walk += dt*10; e.moving=true; e.state="march";
+          e.y = clamp(e.y, T.stripTop, T.stripBot);
+          continue;
+        }
+        resolveIntent(e);
+        e.intent=null;
+        continue;
+      }
+    }
+
     /* emotes pause the march briefly */
     if (e.state==="dance"||e.state==="sit"||e.state==="wave"){
-      if (e.state==="dance") e.walk += dt*14;
+      if (e.state==="dance"){ e.walk += dt*14; e.moving=true; }
       if (e.stateT<=0) e.state="march";
       continue;
     }
@@ -617,15 +783,41 @@ function step(dt){
     const gap = foe ? Math.abs(foe.x - e.x) : Infinity;
 
     /* heroes fire their signature from range, not just in melee */
-    if (e.side===1 && e.ab && foe && gap < 1100){
+    if (e.side===1 && e.ab && foe && gap < 1100 && MG.kind!=="hoop"){
       e.abcd -= dt;
       if (e.abcd <= 0) cast(e, foe);
     }
 
+    /* a line, not a pile — duels and royales close on a person, hangout spreads out */
+    let goal;
+    if ((MG.kind==="duel" || MG.kind==="royale") && foe){
+      const dir = Math.sign(foe.x-e.x) || e.face || 1;
+      goal = {x: foe.x - dir*T.frontGap, y: (T.stripTop+T.stripBot)/2 + (e.id%2?14:-14)};
+    } else if (SCENE==="lounge" && e.side===1 && !foe){
+      goal = loungeGoal(e);
+    } else goal = lineGoal(e, foe);
+    const dx = goal.x - e.x, dy = goal.y - e.y;
+    const speed = T.march * (e.isBoss ? 0.8 : 1) * (e.slow>0 ? 0.35 : 1);
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 3){
+      const stepX = speed * dt, stepY = speed * 0.7 * dt;
+      e.x += clamp(dx, -stepX, stepX);
+      e.y += clamp(dy, -stepY, stepY);
+      if (Math.abs(dx) > 4) e.face = Math.sign(dx);
+      e.walk += dt * 8.5;
+      e.moving = true;
+      e.state = "march";
+    } else {
+      e.face = foe ? (Math.sign(foe.x - e.x) || e.side) : e.side;
+      e.state = (foe && gap <= T.engage + 18) ? "fight" : "hold";
+      /* a breath of life once planted — not a wander that restacks them */
+      e.y += Math.sin(V.t * 1.6 + e.id) * 4 * dt;
+    }
+    e.y = clamp(e.y, T.stripTop, T.stripBot);
+    unpile(e, dt);
+
     if (foe && gap <= T.engage){
-      /* clash */
-      e.state = "fight";
       e.face = Math.sign(foe.x - e.x) || e.side;
+      if (!e.moving) e.state = "fight";
       e.cd -= dt;
       if (e.cd <= 0){
         e.cd = e.rate * (0.9 + Math.random()*0.25) * (e.slow>0 ? 1.7 : 1);
@@ -635,43 +827,6 @@ function step(dt){
                 Math.abs(o.x-e.x) < T.engage+70) hit(e,o);
           e.swing = 1;
         } else hit(e, foe);
-      }
-      // close the last few pixels so they're not swinging at air
-      if (gap > T.engage*0.62){
-        e.x += Math.sign(foe.x-e.x) * T.march*0.8*dt;
-        e.walk += dt*7; e.moving = true;
-      }
-    }
-    else if (foe){
-      /* advance on the enemy */
-      e.state = "march";
-      const dir = Math.sign(foe.x - e.x);
-      e.x += dir * T.march * (e.isBoss ? 0.8 : 1) * (e.slow>0 ? 0.35 : 1) * dt;
-      e.face = dir; e.walk += dt*8.5; e.moving = true;
-    }
-    else {
-      /* nothing to fight — hold the line */
-      const hold = e.isBoss ? T.bossHold : (e.side===1 ? T.heroHold : T.mobHold);
-      const dx = hold - e.x;
-      if (Math.abs(dx) > 14){
-        e.x += Math.sign(dx) * T.march * dt;
-        e.face = Math.sign(dx); e.walk += dt*8.5; e.moving = true;
-      } else {
-        /* planted. mill about on foot now and then, never slide */
-        e.state = "hold";
-        if (e.millT === undefined || e.millT <= 0){
-          e.millT = rnd(2.5, 7);
-          e.millX = hold + rnd(-70, 70);
-          e.millY = clamp(e.y + rnd(-26, 26), T.stripTop, T.stripBot);
-        }
-        e.millT -= dt;
-        const mx = e.millX - e.x, my = e.millY - e.y;
-        if (Math.abs(mx) > 3 || Math.abs(my) > 2){
-          e.x += Math.sign(mx) * Math.min(Math.abs(mx), T.march*0.55*dt);
-          e.y += Math.sign(my) * Math.min(Math.abs(my), 16*dt);
-          e.face = Math.abs(mx) > 3 ? Math.sign(mx) : e.side;
-          e.walk += dt*6; e.moving = true;
-        } else e.face = e.side;
       }
     }
 
@@ -742,11 +897,18 @@ const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp",
 const BOSS_SPRITES  = ["demon","ogre","bigzombie"];
 
 const SPRITES = {};
-function defSprite(key, files){
-  const set={};
+/* geo lets a set carry its own cell size, foot anchor and folder, so art
+   drawn at a different scale drops in without rescaling the 0x72 pack.
+   Defaults are that pack's 112x120 cells with the feet at (56,112). */
+function defSprite(key, files, geo){
+  const g = geo || {};
+  const set = { cw: g.cw || CELL_W,   ch: g.ch || CELL_H,
+                ax: g.ax != null ? g.ax : ANCHOR_X,
+                ay: g.ay != null ? g.ay : ANCHOR_Y };
+  const dir = g.dir || SPRITE_DIR;
   for (const anim in files){
-    const a={src:SPRITE_DIR+files[anim], img:new Image(), frames:1, ready:false};
-    a.img.onload = ()=>{ a.frames = Math.max(1, Math.round(a.img.width/CELL_W));
+    const a={src:dir+files[anim], img:new Image(), frames:1, ready:false};
+    a.img.onload = ()=>{ a.frames = Math.max(1, Math.round(a.img.width/set.cw));
                          a.ready = true; };
     a.img.onerror = ()=>console.warn("sprite missing:", a.src);
     a.img.src = a.src;
@@ -756,6 +918,13 @@ function defSprite(key, files){
 }
 HERO_SPRITES.forEach(c=>defSprite(c,
   {idle:c+"_idle.png", walk:c+"_walk.png", hurt:c+"_hurt.png"}));
+
+/* Original art, drawn in Pixelwright and owned outright: 80x80 cells, feet
+   at (36,74). It is the first set with real attack and death clips, so
+   animOf plays those straight instead of borrowing the hurt cell. */
+defSprite("knight",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:36, ay:74, dir:"sprites/knight/"});
 MOB_SPRITES.forEach(m=>defSprite("mob_"+m,
   {idle:"mob_"+m+"_idle.png", walk:"mob_"+m+"_walk.png"}));
 BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
@@ -766,15 +935,46 @@ function spriteSetFor(e){
   return (set && set.idle && set.idle.ready) ? set : null;
 }
 
-/* which animation, and which frame of it */
+/* which animation, and which frame of it.
+   The pack has no attack or death cells. Strike poses borrow the hurt
+   frame as the contact, and death is a topple of that same cell. */
 function animOf(e, set){
-  // no death art in this pack: hold the hurt pose (heroes) or idle, and
-  // let the renderer topple the body instead
-  if (e.state === "down") return {a:(set.hurt && set.hurt.ready)?set.hurt:set.idle, f:0, fell:true};
+  const hasAtk  = set.attack && set.attack.ready;
+  const hasDead = set.death  && set.death.ready;
+  if (e.state === "down"){
+    if (hasDead){
+      const a = set.death;
+      /* fallT counts down from 0.42s; hold the last cell once it lands */
+      const p = (e.fallT||0) > 0 ? 1 - e.fallT/0.42 : 1;
+      return {a, f:Math.min(a.frames-1, Math.floor(clamp(p,0,1)*a.frames)),
+              real:true};
+    }
+    return {a:(set.hurt && set.hurt.ready)?set.hurt:set.idle, f:0, fell:true};
+  }
   if (e.swing > 0){
-    const a=set.walk.ready?set.walk:set.idle;
-    const k=1-Math.max(0,Math.min(1,e.swing));
-    return {a, f:Math.min(a.frames-1, Math.floor(k*a.frames)), lunge:true};
+    const k = 1 - clamp(e.swing, 0, 1);          // 0 windup → 1 recover
+    if (hasAtk){
+      const a = set.attack;
+      return {a, f:Math.min(a.frames-1, Math.floor(k*a.frames)), real:true};
+    }
+    if (k < 0.30){
+      const u = k / 0.30;
+      return {a:set.idle, f:Math.floor(V.t*6)%set.idle.frames,
+              wind:u};
+    }
+    if (k < 0.62){
+      const u = (k - 0.30) / 0.32;
+      const hurt = set.hurt && set.hurt.ready && u > 0.35;
+      const a = hurt ? set.hurt : (set.walk.ready ? set.walk : set.idle);
+      const f = hurt ? 0 : Math.min(a.frames-1, 1 + Math.floor(u * (a.frames-1)));
+      return {a, f, strike:u};
+    }
+    const u = (k - 0.62) / 0.38;
+    return {a:set.idle, f:0, recover:u};
+  }
+  if (e.state==="dance" && set.walk && set.walk.ready){
+    const a=set.walk;
+    return {a, f:((Math.floor(e.walk/(Math.PI/2))%a.frames)+a.frames)%a.frames};
   }
   if (e.moving && set.walk.ready){
     const a=set.walk;
@@ -784,18 +984,162 @@ function animOf(e, set){
   return {a, f:Math.floor(V.t*6)%a.frames};
 }
 
+/* ---------- runtime palette swap ----------
+   Armor is the dominant saturated hue on the sheet. Everything near that
+   hue is remapped toward the viewer's color; plumes, skin, hair and the
+   black outline stay so the class is still readable. */
+const DYE = new Map();
+function rgbToHsv(r,g,b){
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), d=max-min;
+  let h=0;
+  if (d){
+    if (max===r) h=((g-b)/d)%6;
+    else if (max===g) h=(b-r)/d+2;
+    else h=(r-g)/d+4;
+    h*=60; if (h<0) h+=360;
+  }
+  return [h, max===0?0:d/max, max];
+}
+function hsvToRgb(h,s,v){
+  h=((h%360)+360)%360;
+  const c=v*s, x=c*(1-Math.abs((h/60)%2-1)), m=v-c;
+  let r=0,g=0,b=0;
+  if (h<60){ r=c; g=x; }
+  else if (h<120){ r=x; g=c; }
+  else if (h<180){ g=c; b=x; }
+  else if (h<240){ g=x; b=c; }
+  else if (h<300){ r=x; b=c; }
+  else { r=c; b=x; }
+  return [(r+m)*255,(g+m)*255,(b+m)*255];
+}
+function hueOfHex(hex){
+  const n=parseInt(String(hex).slice(1),16);
+  if (!Number.isFinite(n)) return 160;
+  return rgbToHsv((n>>16)&255,(n>>8)&255,n&255)[0];
+}
+function sheetHue(img){
+  const c=document.createElement("canvas");
+  c.width=img.width; c.height=img.height;
+  const g=c.getContext("2d",{willReadFrequently:true});
+  g.drawImage(img,0,0);
+  /* Reading pixels back taints the canvas when the page itself was opened
+     from a file:// URL, which OBS allows. Without this guard the throw
+     escapes through drawSprite and kills the render loop. */
+  let d;
+  try { d = g.getImageData(0,0,c.width,c.height).data; }
+  catch (_) { return null; }
+  const bins=new Array(36).fill(0);
+  for (let i=0;i<d.length;i+=4){
+    if (d[i+3]<24) continue;
+    const hsv=rgbToHsv(d[i],d[i+1],d[i+2]);
+    if (hsv[1]<0.28 || hsv[2]<0.22 || hsv[2]>0.96) continue;
+    bins[(hsv[0]/10)|0]++;
+  }
+  let best=0, bi=18;
+  for (let i=0;i<36;i++) if (bins[i]>best){ best=bins[i]; bi=i; }
+  return bi*10+5;
+}
+function dyeSpec(e){
+  if (!e || e.isBoss || !e.look) return null;
+  const hex = e.side===1 ? e.look.shirt : e.look.skin;
+  if (!hex || hex[0]!=="#") return null;
+  return Math.round(hueOfHex(hex)/15)*15;
+}
+function dyedSource(anim, absHue){
+  if (absHue==null) return anim.img;
+  const key=anim.src+"|"+absHue;
+  const hit=DYE.get(key);
+  if (hit) return hit;
+  if (anim.domHue==null) anim.domHue=sheetHue(anim.img);
+  if (anim.domHue==null){ DYE.set(key, anim.img); return anim.img; }
+  let dh=Math.abs(anim.domHue-absHue); if (dh>180) dh=360-dh;
+  if (dh<14){ DYE.set(key, anim.img); return anim.img; }
+  const src=anim.img;
+  const c=document.createElement("canvas");
+  c.width=src.width; c.height=src.height;
+  const g=c.getContext("2d",{willReadFrequently:true});
+  g.imageSmoothingEnabled=false;
+  g.drawImage(src,0,0);
+  let im;
+  try { im = g.getImageData(0,0,c.width,c.height); }
+  catch (_) { DYE.set(key, src); return src; }
+  const d=im.data, dom=anim.domHue;
+  for (let i=0;i<d.length;i+=4){
+    if (d[i+3]<24) continue;
+    const hsv=rgbToHsv(d[i],d[i+1],d[i+2]);
+    if (hsv[1]<0.28 || hsv[2]<0.18 || hsv[2]>0.97) continue;
+    let dist=Math.abs(hsv[0]-dom); if (dist>180) dist=360-dist;
+    if (dist>40) continue;
+    const rgb=hsvToRgb(absHue, hsv[1], hsv[2]);
+    d[i]=rgb[0]; d[i+1]=rgb[1]; d[i+2]=rgb[2];
+  }
+  g.putImageData(im,0,0);
+  DYE.set(key,c);
+  return c;
+}
+
 function drawSprite(c, e, set){
   const r = animOf(e,set);
   const a = r.a.ready ? r.a : set.idle;
   const f = Math.min(r.f, a.frames-1);
+  const src = dyedSource(a, dyeSpec(e));
   c.save();
   c.imageSmoothingEnabled = false;
-  if (r.fell) c.rotate(e.side*0.95);                 // no death frames: topple
-  else if (r.lunge) c.translate(e.face*(6*(1-e.swing)), 0);
-  else if (e.moving) c.translate(0, -Math.abs(Math.sin(e.walk))*1.5);
+  /* r.real means the sheet has a genuine clip for this beat: none of the
+     lean-and-rotate faking below applies, and the drawn arc would double
+     up on the blade's own smear. */
+  if (r.real){
+    c.scale(e.face, 1);
+    c.drawImage(src, f*set.cw, 0, set.cw, set.ch,
+                -set.ax, -set.ay, set.cw, set.ch);
+    c.restore();
+    return;
+  }
+  if (r.fell){
+    const p = (e.fallT||0) > 0 ? 1 - e.fallT/0.42 : 1;
+    const ease = clamp(p, 0, 1);
+    /* fall backward, away from the facing direction. Positive canvas
+       rotation is clockwise, so a right-facing body uses a negative angle. */
+    c.rotate(-e.face * 1.15 * ease);
+    c.translate(0, 10 * ease);
+  } else if (r.wind){
+    c.translate(-e.face * 12 * r.wind, 2 * r.wind);
+    c.rotate(-e.face * 0.2 * r.wind);
+  } else if (r.strike != null){
+    const u=r.strike;
+    c.translate(e.face * (-12 + 30*u), -2*Math.sin(u*Math.PI));
+    c.rotate(e.face * (-0.2 + 0.48*u));
+  } else if (r.recover != null){
+    const u=r.recover;
+    c.translate(e.face * 18 * (1-u), 0);
+    c.rotate(e.face * 0.28 * (1-u));
+  } else if (e.flash > 0 && e.state !== "down"){
+    const u=clamp(e.flash/0.28,0,1);
+    c.translate(-e.face * 6 * u, 0);
+    c.rotate(-e.face * 0.14 * u);
+  } else if (e.moving){
+    c.translate(0, -Math.abs(Math.sin(e.walk))*1.5);
+  }
   c.scale(e.face, 1);
-  c.drawImage(a.img, f*CELL_W, 0, CELL_W, CELL_H,
-              -ANCHOR_X, -ANCHOR_Y, CELL_W, CELL_H);
+  c.drawImage(src, f*set.cw, 0, set.cw, set.ch,
+              -set.ax, -set.ay, set.cw, set.ch);
+  if (r.strike != null && r.strike > 0.15 && r.strike < 0.92){
+    /* local space: +x is forward after the facing flip */
+    c.globalAlpha = 0.9;
+    c.strokeStyle = "#f4fff8";
+    c.lineWidth = 3;
+    c.lineCap = "round";
+    c.beginPath();
+    c.arc(26, -62, 30, -1.15, 0.85);
+    c.stroke();
+    c.globalAlpha = 0.45;
+    c.strokeStyle = e.side===1 ? "#2de6c8" : "#ff4d6d";
+    c.lineWidth = 5;
+    c.beginPath();
+    c.arc(22, -58, 22, -0.9, 0.7);
+    c.stroke();
+  }
   c.restore();
 }
 
@@ -1172,41 +1516,49 @@ function layoutPlates(c){
     c.font = "700 "+fs.toFixed(1)+'px "Silkscreen",monospace';
     const w = c.measureText(e.name).width + 10;
     const sh2 = spriteSetFor(e);
-    let top = sh2 ? (e.y + e.gy - ANCHOR_Y - 6)
+    let top = sh2 ? (e.y + e.gy - 64)
                   : (e.y + e.gy - 62*s - (e.isBoss?62:12));
-    const h = fs + 10;
-    // walk upward until this plate clears the ones already placed
-    for (let guard=0; guard<7; guard++){
+    const h = fs + 8;
+    /* prefer a side step over stacking six plates on one column */
+    const tries = [
+      [0,0],[0,-h],[w*0.45,0],[-w*0.45,0],
+      [w*0.45,-h],[-w*0.45,-h],[0,-2*h],[0,-3*h]
+    ];
+    let placed = tries[0];
+    for (const off of tries){
+      const cx0 = e.x + off[0], top0 = top + off[1];
       const clash = boxes.some(b =>
-        Math.abs(b.cx - e.x) < (b.w + w)/2 && Math.abs(b.top - top) < h);
-      if (!clash) break;
-      top -= h;
+        Math.abs(b.cx - cx0) < (b.w + w)/2 - 4 && Math.abs(b.top - top0) < h - 2);
+      if (!clash){ placed = [off[0], off[1]]; break; }
     }
-    boxes.push({cx:e.x, w, top});
-    plate(c, e, top, fs, s);
+    const drawX = e.x + placed[0];
+    top += placed[1];
+    boxes.push({cx:drawX, w, top});
+    plate(c, e, top, fs, s, drawX);
   }
   PLATES = [];
 }
 
-function plate(c,e,top,fs,s){
+function plate(c,e,top,fs,s, drawX){
+  const x = drawX==null ? e.x : drawX;
   c.font="700 "+fs.toFixed(1)+'px "Silkscreen",monospace';
   c.textAlign="center"; c.textBaseline="bottom";
   c.lineJoin="round"; c.lineWidth=4; c.strokeStyle="rgba(0,0,0,.94)";
-  c.strokeText(e.name, e.x, top);
+  c.strokeText(e.name, x, top);
   c.fillStyle = e.isBoss ? "#ffb224" : e.side===1 ? "#ffffff" : "#ff8fa3";
-  c.fillText(e.name, e.x, top);
+  c.fillText(e.name, x, top);
   if (T.showLevels && e.side===1 && e.rec && e.rec.level>1){
     const lf=Math.max(10,10*Math.min(s,1.6));
     c.font='400 '+lf.toFixed(1)+'px "Silkscreen",monospace';
-    c.strokeText("Lv"+e.rec.level, e.x, top-fs-1);
+    c.strokeText("Lv"+e.rec.level, x, top-fs-1);
     c.fillStyle="rgba(45,230,200,.85)";
-    c.fillText("Lv"+e.rec.level, e.x, top-fs-1);
+    c.fillText("Lv"+e.rec.level, x, top-fs-1);
   }
   if (!e.isBoss && e.hp < e.maxHp){
     const w=40*Math.min(s,1.6), h=4;
-    c.fillStyle="rgba(0,0,0,.65)"; c.fillRect(e.x-w/2-1, top+3, w+2, h+2);
+    c.fillStyle="rgba(0,0,0,.65)"; c.fillRect(x-w/2-1, top+3, w+2, h+2);
     c.fillStyle = e.side===1 ? (e.hp/e.maxHp>.35?"#2de6c8":"#ff4d6d") : "#ff4d6d";
-    c.fillRect(e.x-w/2, top+4, w*clamp(e.hp/e.maxHp,0,1), h);
+    c.fillRect(x-w/2, top+4, w*clamp(e.hp/e.maxHp,0,1), h);
   }
 }
 
@@ -1329,6 +1681,16 @@ function drawFx(c){
         c.globalAlpha = fade*0.8; c.fillStyle="#ffffff";
         c.beginPath(); c.arc(f.x,f.y, 13*(1-k)+3, 0, 6.283); c.fill();
         break; }
+      case "shatter":{
+        c.globalAlpha = fade;
+        for(let i=0;i<14;i++){
+          const a = (i/14)*6.283;
+          const d = 10 + k*46;
+          const sz = Math.max(2, 5*(1-k));
+          c.fillStyle = i%3===0 ? "#f4fff8" : f.col;
+          c.fillRect(f.x+Math.cos(a)*d - sz/2, f.y+Math.sin(a)*d*0.7 - k*18, sz, sz);
+        }
+        break; }
       case "num":
         c.globalAlpha=Math.min(1,fade*1.6);
         c.font='700 26px "Silkscreen",monospace';
@@ -1337,13 +1699,47 @@ function drawFx(c){
         c.strokeText(f.txt, f.x, f.y - k*42);
         c.fillStyle=f.col; c.fillText(f.txt, f.x, f.y - k*42);
         break;
+      case "hearts":
+        c.globalAlpha=fade;
+        c.fillStyle="#ff7ad9";
+        for(let i=0;i<5;i++){
+          const a=f.age*3+i, hx=f.x+Math.sin(a)*26, hy=f.y-k*46-i*6;
+          heartPath(c, hx, hy, 6+(i%2));
+          c.fill();
+        }
+        break;
     }
     c.restore();
   }
 }
 
+function drawBackdrop(c){
+  const g=c.createLinearGradient(0,0,0,1080);
+  g.addColorStop(0,"#070b10");
+  g.addColorStop(.55,"#101820");
+  g.addColorStop(.78,"#1a120e");
+  g.addColorStop(1,"#0c0908");
+  c.fillStyle=g; c.fillRect(0,0,1920,1080);
+  c.globalAlpha=.9; c.fillStyle="#f4fff8";
+  c.beginPath(); c.arc(1580,128,28,0,6.283); c.fill();
+  c.globalAlpha=.12; c.fillStyle="#2de6c8";
+  c.beginPath(); c.arc(1580,128,70,0,6.283); c.fill();
+  c.globalAlpha=1; c.fillStyle="#0c1218";
+  const roofs=[[140,560,90],[260,520,130],[430,575,80],[1480,530,150],[1660,570,100]];
+  for (const b of roofs){
+    c.fillStyle="#0c1218"; c.fillRect(b[0],b[1],b[2],240);
+    c.fillStyle="#121a22";
+    c.beginPath(); c.moveTo(b[0]-10,b[1]); c.lineTo(b[0]+b[2]/2,b[1]-40); c.lineTo(b[0]+b[2]+10,b[1]); c.fill();
+  }
+  c.fillStyle="#14110f"; c.fillRect(0,900,1920,180);
+  c.fillStyle="#1c1814";
+  for (let x=0;x<1920;x+=48) c.fillRect(x,900,22,7);
+  c.fillStyle="rgba(45,230,200,.05)"; c.fillRect(0,960,1920,86);
+}
+
 function render(){
   cx.clearRect(0,0,1920,1080);
+  if (CFG.backdrop) drawBackdrop(cx);
   cx.save();
   if (V.shake>0) cx.translate((Math.random()-.5)*V.shake, (Math.random()-.5)*V.shake);
   drawClouds(cx);
@@ -1358,13 +1754,22 @@ function render(){
   for (const e of order){
     const s=depth(e);
     cx.save();
-    cx.translate(e.x, e.y + e.gy);
+    const hop = e.state==="dance" ? Math.abs(Math.sin(V.t*12 + e.id))*12 : 0;
+    cx.translate(e.x, e.y + e.gy - hop);
     cx.globalAlpha*=.3;
     cx.beginPath(); cx.ellipse(0,1,13*s,4*s,0,0,6.283); cx.fillStyle="#000"; cx.fill();
     cx.globalAlpha/=.3;
-    if (!e.alive){ const k=(V.t-e.fading)/1.2;
-      cx.globalAlpha=Math.max(0,1-k); cx.translate(0,k*18); cx.rotate(k*.5); }
-    if (e.state==="down" && !spriteSetFor(e)) cx.rotate(e.side*0.9);
+    if (!e.alive){
+      const k=clamp((V.t-e.fading)/1.2,0,1);
+      cx.globalAlpha=Math.max(0,1-k*k);
+      cx.rotate(-e.face*Math.min(1.25, k*1.7));
+      cx.translate(0, k*30);
+      cx.scale(1, Math.max(0.4, 1-k*0.5));
+    }
+    if (e.state==="down" && !spriteSetFor(e)){
+      const p=(e.fallT||0)>0 ? 1-e.fallT/0.42 : 1;
+      cx.rotate(-e.face*1.05*clamp(p,0,1));
+    }
     if (!spriteSetFor(e)) cx.scale(s/1.62, s/1.62);
     if (e.flash>0 && Math.random()<.6) cx.globalAlpha*=.45;
     const sh = spriteSetFor(e);
@@ -1377,6 +1782,9 @@ function render(){
   }
   layoutPlates(cx);
   drawShots(cx);
+  drawHoop(cx);
+  drawBombs(cx);
+  drawBalls(cx);
   drawFx(cx);
   cx.restore();
 }
@@ -1411,6 +1819,35 @@ function hud(dt){
     $("bossFill").style.width=clamp(V.boss.hp/V.boss.maxHp,0,1)*100+"%";
   } else bb.classList.remove("on");
   if (toastT>0){ toastT-=dt; if(toastT<=0) $("toast").classList.remove("on"); }
+  const mg=$("mg");
+  let label="";
+  if (MG.kind==="royale-join") label="BATTLE ROYALE — TYPE !JOIN   "+Math.ceil(Math.max(0,MG.until-V.t))+"s";
+  else if (MG.kind==="royale"){
+    const n=V.ents.filter(e=>e.ff && e.alive && e.state!=="down").length;
+    label="LAST ONE STANDING   "+n+" LEFT";
+  } else if (MG.kind==="duel" && MG.a && MG.b) label="DUEL   "+MG.a.name+"  VS  "+MG.b.name;
+  else if (MG.kind==="hoop"){
+    const bits=Object.entries(MG.scores).sort((a,b)=>b[1]-a[1]).slice(0,3)
+      .map(([k,v])=>k+" "+v).join("    ");
+    label="BASKETBALL  "+Math.ceil(Math.max(0,MG.until-V.t))+"s"+(bits?"    "+bits:"");
+  } else if (MG.pending) label=MG.pending.to.name+" — TYPE !ACCEPT";
+  if (label){ mg.textContent=label; mg.classList.add("on"); }
+  else mg.classList.remove("on");
+  const ttl=$("ttl");
+  if (ttl){
+    ttl.textContent = (MG.kind==="royale"||MG.kind==="royale-join") ? "BATTLE ROYALE"
+      : MG.kind==="duel" ? "DUEL"
+      : MG.kind==="hoop" ? "BASKETBALL"
+      : SCENE==="lounge" ? "HANGOUT" : "THE JESTER'S VILLAGE";
+  }
+  const sl=$("slots");
+  if (slotShow && V.t<slotShow.until){
+    sl.classList.add("on");
+    const spinning=V.t<slotShow.spinUntil;
+    const faces=spinning ? [pick(SLOT_FACES),pick(SLOT_FACES),pick(SLOT_FACES)] : slotShow.faces;
+    $("reels").innerHTML=faces.map(f=>"<b>"+f+"</b>").join("");
+    $("slotsub").textContent=slotShow.who+" — "+(spinning?"spinning":slotShow.msg);
+  } else sl.classList.remove("on");
 }
 function fit(){
   const s=Math.min(innerWidth/1920, innerHeight/1080);
@@ -1453,21 +1890,619 @@ function chatConnect(){
 }
 
 /* ==================================================================
+   HANGOUT — the Stream Avatars half
+   Loyalty points, slaps, hugs, bombs, duels, slots, royale, basketball.
+   War (the village) stays the default. !lounge parks the horde so chat
+   just lives on the floor.
+================================================================== */
+let SCENE = "war";
+const MG = {
+  kind:null, until:0, a:null, b:null, wager:0,
+  pending:null, scores:{}, roster:[], prize:80,
+};
+const SHOP = [
+  {id:"jester", cost:20, hat:"jester", label:"Jester hat"},
+  {id:"crown", cost:60, hat:"crown", label:"Crown"},
+  {id:"halo", cost:40, hat:"halo", label:"Halo"},
+  {id:"horns", cost:25, hat:"horns", label:"Horns"},
+  {id:"cap", cost:15, hat:"cap", label:"Cap"},
+  {id:"mage", cost:35, cls:"mage", label:"Mage"},
+  {id:"cleric", cost:35, cls:"cleric", label:"Cleric"},
+  {id:"paladin", cost:45, cls:"paladin", label:"Paladin"},
+  {id:"rogue", cost:30, cls:"rogue", label:"Rogue"},
+  {id:"barbarian", cost:30, cls:"barbarian", label:"Barbarian"},
+  {id:"knight", cost:30, cls:"knight", label:"Knight"},
+];
+const SLOT_FACES = ["JEST","GOLD","SKUL","GEM","BOSS"];
+let slotShow = null;
+
+function coinsOf(rec){
+  if (!rec) return 0;
+  if (rec.coins==null) rec.coins = 40;
+  if (!rec.owned) rec.owned = [];
+  return rec.coins;
+}
+function privileged(name, tags){
+  tags = tags || {};
+  if (tags.mod==="1" || tags.forceMod) return true;
+  if (tags.badges && /broadcaster\/1|moderator\/1/.test(tags.badges)) return true;
+  if (CFG.channel && name && name.toLowerCase()===CFG.channel.toLowerCase()) return true;
+  return false;
+}
+function findNamed(q){
+  if (!q) return null;
+  const k = String(q).toLowerCase().replace(/^@/,"").replace(/[,.!?]+$/,"");
+  return V.ents.find(e=>e.alive && e.key===k)
+    || V.ents.find(e=>e.alive && e.key && (e.key.startsWith(k) || e.name.toLowerCase()===k))
+    || null;
+}
+function setScene(mode){
+  SCENE = mode==="lounge" ? "lounge" : "war";
+  if (SCENE==="lounge"){
+    for (const e of V.ents) if (e.side===-1 && e.alive){ e.alive=false; e.fading=V.t; }
+    if (V.boss){ V.boss.alive=false; V.boss.fading=V.t; V.boss=null; }
+    toast("HANGOUT", "var(--teal)");
+    log([{t:"Hangout",c:"c-t"},{t:" — the horde holds. Chat owns the floor.",c:"c-v"}]);
+  } else {
+    toast("THE VILLAGE", "var(--horde)");
+    log([{t:"War",c:"c-h"},{t:" — monsters come from the east again",c:"c-v"}]);
+  }
+}
+function heartPath(c,x,y,s){
+  c.beginPath();
+  c.moveTo(x, y+s*0.35);
+  c.bezierCurveTo(x-s, y-s*0.15, x-s*0.35, y-s, x, y-s*0.35);
+  c.bezierCurveTo(x+s*0.35, y-s, x+s, y-s*0.15, x, y+s*0.35);
+}
+function loungeGoal(e){
+  const mates = heroes().filter(h=>h.state!=="down");
+  let i=0;
+  for (let k=0;k<mates.length;k++) if (mates[k].id===e.id) i=k;
+  const n=Math.max(1, mates.length);
+  return {
+    x: 150 + ((i+0.5)/n)*1580 + Math.sin(V.t*0.35+e.id)*24,
+    y: (i%2===0 ? T.stripTop+28 : T.stripBot-18) + Math.cos(V.t*0.5+e.id)*6,
+  };
+}
+function goIntent(e, kind, target){
+  if (!e || !target || e===target || e.state==="down" || target.state==="down") return;
+  e.intent = {k:kind, tid:target.id, x:target.x, y:target.y, until:V.t+7};
+  e.lastSeen = V.t;
+}
+function resolveIntent(e){
+  const g=e.intent;
+  if (!g) return;
+  const t=V.ents.find(o=>o.id===g.tid && o.alive && o.state!=="down");
+  if (!t) return;
+  if (g.k==="hug"){
+    e.state="dance"; e.stateT=2.4; t.state="dance"; t.stateT=2.4;
+    fx({k:"hearts", x:(e.x+t.x)/2, y:Math.min(e.y,t.y)-70, life:1.3, col:"#ff7ad9"});
+    if (e.rec){ coinsOf(e.rec); e.rec.coins+=2; }
+    if (t.rec){ coinsOf(t.rec); t.rec.coins+=2; }
+    Save.put();
+    num(e.x, e.y-90, "+2", "#ffd166");
+    num(t.x, t.y-90, "+2", "#ffd166");
+    log([{t:e.name,c:"c-t"},{t:" hugged ",c:"c-v"},{t:t.name,c:"c-t"}]);
+  } else if (g.k==="attack") slap(e, t);
+}
+function slap(src, dst){
+  if (!src || !dst || dst.state==="down") return;
+  src.swing = 1;
+  src.face = Math.sign(dst.x-src.x) || 1;
+  const dir = Math.sign(dst.x-src.x) || src.face || 1;
+  dst.kb = dir * 680;
+  dst.vy = -240;
+  dst.stun = 0.9;
+  dst.flash = .35;
+  fx({k:"impact", x:(src.x+dst.x)/2, y:dst.y-34, col:"#ffe9a8", life:.32, n:8, r:46});
+  if (MG.kind==="royale" && dst.ff){
+    dst.hp -= 34;
+    if (dst.hp<=0) down(src, dst);
+  } else if (MG.kind==="duel" && (dst===MG.a || dst===MG.b)){
+    hit(src, dst);
+  }
+  log([{t:src.name,c:"c-t"},{t:" knocked ",c:"c-v"},{t:dst.name,c:"c-h"}]);
+}
+function yeet(e){
+  if (!e || e.state==="down") return;
+  fx({k:"shatter", x:e.x, y:e.y-30, col:(e.look&&e.look.shirt)||"#ffd166", life:.55});
+  fx({k:"burst", x:e.x, y:e.y-20, r1:90, col:"#ff7a18", life:.4});
+  const royale = MG.kind==="royale" && e.ff;
+  const duel = MG.kind==="duel" && (e===MG.a || e===MG.b);
+  e.state="down"; e.stateT=4.2; e.fallT=0.3; e.hp=e.maxHp;
+  e.kb=0; e.stun=0; e.intent=null;
+  if (royale) e.ff=false;
+  if (duel){
+    const winner = e===MG.a ? MG.b : MG.a;
+    MG.until = V.t; /* stepSocial sees the downed duelist */
+    if (winner) winner._duelWin = true;
+  }
+  log([{t:e.name,c:"c-l"},{t:" got launched",c:"c-v"}]);
+}
+function plantBomb(owner, at){
+  const x = at ? at.x : (owner ? owner.x : 960);
+  const y = at ? at.y : (owner ? owner.y : (T.stripTop+T.stripBot)/2);
+  V.bombs.push({x, y, fuse:2.15, owner:owner||null});
+  log([{t:owner?owner.name:"Someone",c:"c-l"},
+       {t: at && at!==owner ? " bombed "+at.name : " dropped a bomb", c:"c-v"}]);
+}
+function stepBombs(dt){
+  for (const b of V.bombs){
+    b.fuse -= dt;
+    if (b.fuse>0) continue;
+    b.dead = true;
+    fx({k:"burst", x:b.x, y:b.y-16, r1:170, col:"#ff7a18", life:.5});
+    V.shake = Math.max(V.shake, 11);
+    for (const e of V.ents){
+      if (!e.alive || e.state==="down") continue;
+      const d = Math.hypot(e.x-b.x, e.y-b.y);
+      if (d>155) continue;
+      const dir = Math.sign(e.x-b.x) || (e.id%2?1:-1);
+      e.kb = dir * (520 + (155-d)*3);
+      e.vy = -280;
+      e.stun = 0.9;
+      e.flash = .4;
+      if (MG.kind==="royale" && e.ff){
+        e.hp -= 36;
+        if (e.hp<=0) down(b.owner||e, e);
+      }
+    }
+  }
+  V.bombs = V.bombs.filter(b=>!b.dead);
+}
+function drawBombs(c){
+  for (const b of V.bombs){
+    c.fillStyle = Math.sin(b.fuse*18)>0 ? "#ff4d6d" : "#2a1216";
+    c.beginPath(); c.arc(b.x, b.y-22, 11, 0, 6.283); c.fill();
+    c.strokeStyle = "#ffd166"; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(b.x, b.y-32); c.lineTo(b.x+7, b.y-44); c.stroke();
+    c.fillStyle = "#fff2d0";
+    c.beginPath(); c.arc(b.x+7, b.y-44, 2.6, 0, 6.283); c.fill();
+  }
+}
+function shootBall(e, aim){
+  const perfect = 5;
+  const a = (aim==null || isNaN(aim)) ? (3+Math.random()*4) : aim;
+  const err = a - perfect;
+  const hoopX=1660, hoopY=T.stripTop-36;
+  const tFlight=0.85, g=980;
+  const dx=hoopX-e.x, dy=hoopY-(e.y-36);
+  V.balls.push({
+    x:e.x+e.face*10, y:e.y-36,
+    vx: dx/tFlight + err*48,
+    vy: (dy - 0.5*g*tFlight*tFlight)/tFlight,
+    g, life:2.4, owner:e, scored:false, wasAbove:true,
+  });
+  e.state="wave"; e.stateT=0.55;
+}
+function stepBalls(dt){
+  const hoopX=1660, hoopY=T.stripTop-36;
+  for (const b of V.balls){
+    b.life -= dt;
+    b.vy += b.g*dt;
+    b.x += b.vx*dt;
+    b.y += b.vy*dt;
+    const above = b.y < hoopY;
+    if (b.wasAbove && !above && !b.scored && b.vy>0 && Math.abs(b.x-hoopX)<46){
+      b.scored = true;
+      if (b.owner && b.owner.key){
+        MG.scores[b.owner.key] = (MG.scores[b.owner.key]||0)+2;
+        if (b.owner.rec){ coinsOf(b.owner.rec); b.owner.rec.coins += 4; Save.put(); }
+        num(hoopX, hoopY-20, "+2", "#ffd166");
+        fx({k:"spark", x:hoopX, y:hoopY, col:"#ffd166", life:.55});
+        log([{t:b.owner.name,c:"c-l"},{t:" sinks it",c:"c-v"}]);
+      }
+    }
+    b.wasAbove = b.y < hoopY;
+    if (b.y > T.stripBot+40) b.life = 0;
+  }
+  V.balls = V.balls.filter(b=>b.life>0);
+}
+function drawHoop(c){
+  if (MG.kind!=="hoop" && !V.balls.length) return;
+  const x=1660, y=T.stripTop-36;
+  c.fillStyle="#d5dee4";
+  c.fillRect(x+36, y-8, 8, T.stripBot-y+20);
+  c.fillStyle="#f4f7f8";
+  c.fillRect(x+18, y-52, 34, 26);
+  c.strokeStyle="#1c2428"; c.lineWidth=2;
+  c.strokeRect(x+18, y-52, 34, 26);
+  c.strokeStyle="#ff7a18"; c.lineWidth=4;
+  c.beginPath(); c.ellipse(x, y, 28, 9, 0, 0, 6.283); c.stroke();
+  c.strokeStyle="rgba(255,122,24,.45)"; c.lineWidth=1.5;
+  for (let i=0;i<4;i++){
+    c.beginPath();
+    c.moveTo(x-18+i*12, y);
+    c.lineTo(x, y+18);
+    c.stroke();
+  }
+}
+function drawBalls(c){
+  for (const b of V.balls){
+    c.fillStyle="#ff7a18";
+    c.beginPath(); c.arc(b.x, b.y, 8, 0, 6.283); c.fill();
+    c.strokeStyle="#1a120c"; c.lineWidth=1.4;
+    c.beginPath(); c.arc(b.x, b.y, 8, 0.4, 2.4); c.stroke();
+    c.beginPath(); c.moveTo(b.x-7, b.y); c.lineTo(b.x+7, b.y); c.stroke();
+  }
+}
+function clearMG(){
+  for (const e of V.ents) e.ff = false;
+  MG.kind=null; MG.a=MG.b=null; MG.wager=0; MG.pending=null;
+  MG.roster=[]; MG.scores={}; MG.prize=80;
+}
+function endMG(winner, label){
+  const kind = MG.kind;
+  let pot = 0;
+  if (MG.wager>0) pot = MG.wager*2;
+  else if (kind==="royale" || kind==="hoop") pot = MG.prize||0;
+  if (winner && winner.rec && pot){
+    coinsOf(winner.rec);
+    winner.rec.coins += pot;
+    Save.put();
+    num(winner.x, winner.y-96, "+"+pot, "#ffd166");
+  }
+  if (winner){
+    toast((winner.name+" WINS").toUpperCase(), "var(--loot)");
+    log([{t:winner.name,c:"c-l"},{t:" takes "+label+(pot?" · "+pot+" pts":""),c:"c-v"}]);
+    if (winner.state!=="down"){ winner.state="dance"; winner.stateT=3.2; }
+  } else if (label) toast(label.toUpperCase(), "var(--loot)");
+  clearMG();
+}
+function startDuel(a, b, wager, force){
+  if (MG.kind){ log([{t:"A minigame is already running",c:"c-v"}]); return; }
+  if (!a || !b || a===b || b.side!==1){ log([{t:"!duel name amount",c:"c-v"}]); return; }
+  wager = Math.max(0, Math.min(500, wager|0));
+  if (!force){
+    MG.pending = {from:a, to:b, wager, until:V.t+18};
+    log([{t:a.name,c:"c-t"},{t:" challenges ",c:"c-v"},{t:b.name,c:"c-h"},
+         {t:" for "+wager+" — !accept",c:"c-l"}]);
+    toast(b.name+" — !ACCEPT", "var(--loot)");
+    return;
+  }
+  beginDuel(a, b, wager);
+}
+function beginDuel(a, b, wager){
+  if (!a || !b || !a.alive || !b.alive){ MG.pending=null; return; }
+  if (wager>0){
+    if (coinsOf(a.rec)<wager || coinsOf(b.rec)<wager){
+      log([{t:"Not enough points for that wager",c:"c-h"}]);
+      MG.pending=null; return;
+    }
+    a.rec.coins -= wager; b.rec.coins -= wager; Save.put();
+  }
+  MG.kind="duel"; MG.a=a; MG.b=b; MG.wager=wager; MG.until=V.t+20; MG.pending=null;
+  a.x=820; b.x=1100; a.y=b.y=(T.stripTop+T.stripBot)/2;
+  a.hp=a.maxHp; b.hp=b.maxHp; a.state=b.state="march"; a.stun=b.stun=0;
+  toast("DUEL", "var(--horde)");
+  log([{t:"DUEL",c:"c-h"},{t:" "+a.name+" vs "+b.name,c:"c-v"}]);
+}
+function startRoyale(){
+  if (MG.kind){ log([{t:"A minigame is already running",c:"c-v"}]); return; }
+  MG.kind="royale-join"; MG.until=V.t+8; MG.roster=[]; MG.prize=80;
+  toast("BATTLE ROYALE — !JOIN", "var(--horde)");
+  log([{t:"BATTLE ROYALE",c:"c-h"},{t:" — type !join   (8s)",c:"c-v"}]);
+}
+function beginRoyale(){
+  const roster = MG.roster.filter(e=>e && e.alive && e.state!=="down");
+  if (roster.length<2){
+    toast("ROYALE NEEDS 2", "var(--loot)");
+    MG.kind=null; MG.roster=[]; return;
+  }
+  MG.kind="royale"; MG.until=V.t+36; MG.prize=40*roster.length;
+  roster.forEach((e,i)=>{
+    e.ff=true; e.hp=e.maxHp; e.state="march"; e.stun=0;
+    e.x = 280 + (i*(1400/Math.max(1,roster.length-1)));
+    e.y = i%2 ? T.stripTop+30 : T.stripBot-16;
+  });
+  toast("LAST ONE STANDING", "var(--horde)");
+}
+function startHoop(){
+  if (MG.kind){ log([{t:"A minigame is already running",c:"c-v"}]); return; }
+  MG.kind="hoop"; MG.until=V.t+28; MG.scores={}; MG.prize=50;
+  toast("BASKETBALL — !SHOOT", "var(--loot)");
+  log([{t:"BASKETBALL",c:"c-l"},{t:" — !shoot 1 to 9, 5 is pure",c:"c-v"}]);
+}
+function doSlots(e, wager){
+  if (!e || !e.rec) return;
+  wager = Math.max(5, Math.min(100, wager||10));
+  if (e.slotCd && V.t<e.slotCd) return;
+  if (coinsOf(e.rec)<wager){
+    log([{t:e.name,c:"c-t"},{t:" is short on points",c:"c-v"}]); return;
+  }
+  e.rec.coins -= wager;
+  e.slotCd = V.t+3;
+  const faces = [pick(SLOT_FACES), pick(SLOT_FACES), pick(SLOT_FACES)];
+  let win=0, msg="bust";
+  if (faces[0]===faces[1] && faces[1]===faces[2]){ win=wager*6; msg="JACKPOT ×6"; }
+  else if (faces[0]===faces[1] || faces[1]===faces[2] || faces[0]===faces[2]){ win=wager*2; msg="pair ×2"; }
+  if (win){ e.rec.coins += win; num(e.x, e.y-96, "+"+win, "#ffd166"); }
+  Save.put();
+  slotShow = {until:V.t+3.3, spinUntil:V.t+0.85, faces, who:e.name,
+              msg: win ? msg+"  +"+win : "lost "+wager};
+  log([{t:e.name,c:"c-l"},{t:" slots "+faces.join(" ")+" — "+(win?msg:"bust"),c:"c-v"}]);
+  e.state="dance"; e.stateT=1.5;
+}
+function tryBuy(a, q){
+  const key=(q||"").toLowerCase();
+  const item=SHOP.find(s=>s.id===key || s.label.toLowerCase()===key);
+  if (!item){ log([{t:"Nothing by that name. ",c:"c-v"},{t:"!shop",c:"c-t"}]); return; }
+  coinsOf(a.rec);
+  const owned = a.rec.owned.indexOf(item.id)>=0;
+  if (!owned){
+    if (a.rec.coins<item.cost){
+      log([{t:a.name,c:"c-t"},{t:" needs "+item.cost+" pts for "+item.label,c:"c-v"}]);
+      return;
+    }
+    a.rec.coins -= item.cost;
+    a.rec.owned.push(item.id);
+  }
+  if (item.hat){ a.look.hat=item.hat; a.rec.hat=item.hat; }
+  if (item.cls){ a.cls=item.cls; a.spriteKey=item.cls; a.rec.klass=item.cls; }
+  Save.put();
+  toast((a.name+" · "+item.label).toUpperCase(), "var(--loot)");
+  log([{t:a.name,c:"c-t"},{t: owned?" equipped ":" bought ",c:"c-v"},{t:item.label,c:"c-l"}]);
+}
+function showShop(a){
+  log([{t:a.name,c:"c-t"},{t:" — "+coinsOf(a.rec)+" pts",c:"c-l"}]);
+  log([{t:SHOP.map(s=>s.id+" "+s.cost).join("  "),c:"c-v"}]);
+}
+function showBoard(){
+  const top=Object.values(Save.d).filter(r=>(r.coins||0)>0)
+    .sort((a,b)=>(b.coins||0)-(a.coins||0)).slice(0,5);
+  if (!top.length){ log([{t:"Nobody has points yet",c:"c-v"}]); return; }
+  top.forEach((r,i)=>log([{t:(i+1)+". "+r.name,c:"c-t"},{t:"  "+r.coins,c:"c-l"}]));
+}
+function massDo(what){
+  const hs=heroes();
+  if (what==="hug"){
+    for (let i=0;i+1<hs.length;i+=2) goIntent(hs[i], "hug", hs[i+1]);
+  } else if (what==="explode"){
+    for (const h of hs) yeet(h);
+  } else if (what==="bomb"){
+    for (const h of hs) plantBomb(h);
+  } else if (what==="attack"){
+    for (let i=0;i+1<hs.length;i+=2) goIntent(hs[i], "attack", hs[i+1]);
+  } else {
+    const em = ["jump","dance","sit","wave"].includes(what) ? what : "dance";
+    for (const h of hs) act(h, em);
+  }
+  toast("MASS "+what.toUpperCase(), "var(--teal)");
+}
+function attackTarget(a, named){
+  if (named) return named;
+  if (MG.kind==="duel") return a===MG.a ? MG.b : a===MG.b ? MG.a : null;
+  if (SCENE==="lounge" || MG.kind==="royale"){
+    return heroes().filter(h=>h!==a && h.state!=="down" && (MG.kind!=="royale" || h.ff))
+      .sort((p,q)=>Math.abs(p.x-a.x)-Math.abs(q.x-a.x))[0] || null;
+  }
+  return nearestFoe(a);
+}
+function runCmd(a, c, rest, tags){
+  const arg = rest.join(" ");
+  const arg0 = (rest[0]||"").replace(/^@/,"");
+  if (["jump","dance","sit","wave","hat","stats","charge"].includes(c)) return act(a, c);
+  if (c==="color" || c==="colour") return act(a, "color", arg);
+  if (c==="hug"){
+    const t = findNamed(arg0) || heroes().find(h=>h!==a && h.state!=="down");
+    if (t) goIntent(a, "hug", t);
+    else log([{t:"!hug name",c:"c-v"}]);
+    return;
+  }
+  if (c==="attack" || c==="slap" || c==="punch"){
+    const t = attackTarget(a, arg0 ? findNamed(arg0) : null);
+    if (!t){ log([{t:"Nobody to smack",c:"c-v"}]); return; }
+    if (Math.abs(t.x-a.x)<72 && Math.abs(t.y-a.y)<40) slap(a, t);
+    else goIntent(a, "attack", t);
+    return;
+  }
+  if (c==="bomb"){ plantBomb(a, arg0 ? findNamed(arg0) : null); return; }
+  if (c==="explode"){
+    const t = arg0 ? findNamed(arg0) : null;
+    if (t && t!==a && !privileged(a.name, tags)){
+      log([{t:"Only a mod can explode someone else",c:"c-v"}]); return;
+    }
+    yeet(t || a); return;
+  }
+  if (c==="hideavatar" || c==="hide"){
+    a.rec.hidden = true; Save.put(); retire(a);
+    log([{t:a.name,c:"c-v"},{t:" ducked out · !hideavatar to come back",c:"c-v"}]);
+    return;
+  }
+  if (c==="points" || c==="currency" || c==="coins" || c==="gold"){
+    if ((rest[0]||"")==="give"){
+      const t = findNamed(rest[1]);
+      const n = Math.max(0, Math.min(coinsOf(a.rec), parseInt(rest[2],10)||0));
+      if (!t || !t.rec || !n){ log([{t:"!give name amount",c:"c-v"}]); return; }
+      a.rec.coins -= n; coinsOf(t.rec); t.rec.coins += n; Save.put();
+      log([{t:a.name,c:"c-t"},{t:" gave "+n+" to ",c:"c-v"},{t:t.name,c:"c-l"}]);
+      return;
+    }
+    log([{t:a.name,c:"c-t"},{t:" — "+coinsOf(a.rec)+" loyalty pts",c:"c-l"}]);
+    return;
+  }
+  if (c==="give") return runCmd(a, "points", ["give", ...rest], tags);
+  if (c==="shop") return showShop(a);
+  if (c==="buy") return tryBuy(a, arg || arg0);
+  if (c==="leaderboard" || c==="lb" || c==="top") return showBoard();
+  if (c==="avatar" || c==="class"){
+    const want = (arg0||"").toLowerCase();
+    const item = SHOP.find(s=>s.cls===want);
+    if (!item){ log([{t:"mage cleric paladin rogue barbarian knight",c:"c-v"}]); return; }
+    if (a.rec.owned.indexOf(item.id)<0 && a.cls!==want){
+      log([{t:"Buy it first — !buy "+item.id+" ("+item.cost+")",c:"c-v"}]); return;
+    }
+    a.cls=want; a.spriteKey=want; a.rec.klass=want; Save.put();
+    log([{t:a.name,c:"c-t"},{t:" is a "+want,c:"c-v"}]);
+    return;
+  }
+  if (c==="random"){
+    a.look.hat = pick(HATS.filter(h=>h!=="none")); a.rec.hat=a.look.hat;
+    a.look.shirt = pick(SHIRTS); a.rec.color=a.look.shirt;
+    const cls = pick(["knight","mage","cleric","paladin","rogue","barbarian"]);
+    a.cls=cls; a.spriteKey=cls; a.rec.klass=cls; Save.put();
+    log([{t:a.name,c:"c-t"},{t:" spun a new look",c:"c-v"}]);
+    return;
+  }
+  if (c==="duel"){
+    const t = findNamed(arg0);
+    const w = parseInt(rest[1],10);
+    if (!t){ log([{t:"!duel name amount",c:"c-v"}]); return; }
+    startDuel(a, t, isNaN(w)?10:w, false);
+    return;
+  }
+  if (c==="accept"){
+    const p=MG.pending;
+    if (!p || p.to!==a){ log([{t:"Nothing to accept",c:"c-v"}]); return; }
+    if (MG.kind){ log([{t:"A minigame is already running",c:"c-v"}]); return; }
+    beginDuel(p.from, a, p.wager);
+    return;
+  }
+  if (c==="slots" || c==="slot"){ doSlots(a, parseInt(arg0,10)||10); return; }
+  if (c==="boss"){
+    if (MG.kind){ log([{t:"Finish the minigame first",c:"c-v"}]); return; }
+    if (V.boss && V.boss.alive){ log([{t:"A boss is already up",c:"c-v"}]); return; }
+    if (V.bossCd && V.t<V.bossCd && !privileged(a.name, tags)){
+      log([{t:"The boss is catching its breath",c:"c-v"}]); return;
+    }
+    V.bossCd = V.t+45;
+    SCENE="war";
+    spawnBoss(a.name);
+    return;
+  }
+  if (c==="royale" || c==="br"){ startRoyale(); return; }
+  if (c==="join"){
+    if (MG.kind==="royale-join"){
+      if (!MG.roster.includes(a)){
+        MG.roster.push(a); a.state="wave"; a.stateT=1.1;
+        log([{t:a.name,c:"c-t"},{t:" joined the royale",c:"c-v"}]);
+      }
+      return;
+    }
+    if (V.boss && V.boss.alive){
+      a.x = Math.min(a.x, T.heroHold);
+      a.hp = a.maxHp;
+      toast(a.name+" JOINS", "var(--teal)");
+      return;
+    }
+    log([{t:"Nothing to join",c:"c-v"}]);
+    return;
+  }
+  if (c==="basketball" || c==="hoop"){ startHoop(); return; }
+  if (c==="shoot"){
+    if (MG.kind!=="hoop"){ log([{t:"No hoop up — !basketball",c:"c-v"}]); return; }
+    const n=parseInt(arg0,10);
+    shootBall(a, isNaN(n)?null:clamp(n,1,9));
+    return;
+  }
+  if (c==="lounge" || c==="hangout" || c==="chill"){ setScene("lounge"); return; }
+  if (c==="war" || c==="fight" || c==="village"){ setScene("war"); return; }
+  if (c==="mass"){
+    if (!privileged(a.name, tags) && !tags.forceMod){
+      log([{t:"Mass commands are for mods",c:"c-v"}]); return;
+    }
+    massDo((rest[0]||"dance").toLowerCase());
+    return;
+  }
+  if (c==="8ball"){
+    const ans=["Yes.","No.","The jester says wait.","Count on it.","The horde disagrees.",
+               "Ask again after the next boss.","Obviously.","Not tonight."];
+    log([{t:pick(ans),c:"c-l"}]); return;
+  }
+  if (c==="roll"){
+    const spec=arg0||"1d20";
+    const m=spec.match(/^(\d*)d(\d+)$/i);
+    const n=Math.min(8, m?parseInt(m[1]||"1",10):1);
+    const faces=Math.max(2, Math.min(100, m?parseInt(m[2],10):20));
+    let sum=0; for (let i=0;i<n;i++) sum += 1+(Math.random()*faces|0);
+    log([{t:a.name,c:"c-t"},{t:" rolled "+sum+" ("+n+"d"+faces+")",c:"c-l"}]);
+    return;
+  }
+  if (c==="commands" || c==="help"){
+    log([{t:"!dance !hug !attack !bomb !duel !slots !boss !royale !basketball",c:"c-t"}]);
+    log([{t:"!points !shop !buy !leaderboard !avatar !color !hideavatar !lounge",c:"c-v"}]);
+    toast("COMMANDS IN THE LOG", "var(--teal)");
+  }
+}
+function stepSocial(){
+  const dt = arguments[0];
+  stepBombs(dt);
+  stepBalls(dt);
+  if (slotShow && V.t>slotShow.until) slotShow=null;
+  if (MG.pending && V.t>MG.pending.until){
+    log([{t:MG.pending.to.name,c:"c-h"},{t:" let the duel expire",c:"c-v"}]);
+    MG.pending=null;
+  }
+  if (MG.kind==="royale-join" && V.t>=MG.until) beginRoyale();
+  else if (MG.kind==="royale"){
+    const left=V.ents.filter(e=>e.ff && e.alive && e.state!=="down");
+    if (left.length<=1 || V.t>=MG.until) endMG(left[0]||null, "the royale");
+  } else if (MG.kind==="duel"){
+    const a=MG.a, b=MG.b;
+    if (!a || !b || !a.alive || !b.alive) endMG(null, "duel called");
+    else if (a.state==="down" || b.state==="down" || V.t>=MG.until){
+      const winner = a.state==="down" ? b : b.state==="down" ? a : (a.hp>=b.hp ? a : b);
+      endMG(winner, "the duel");
+    }
+  } else if (MG.kind==="hoop" && V.t>=MG.until){
+    let best=null, bs=-1;
+    for (const k in MG.scores) if (MG.scores[k]>bs){ bs=MG.scores[k]; best=k; }
+    const w = best && V.ents.find(e=>e.key===best && e.alive);
+    endMG(bs>0 ? w : null, bs>0 ? "the hoop" : "no baskets");
+  }
+}
+function stepCue(){
+  if (!V.cue.length) return;
+  const keep=[];
+  for (const c of V.cue){
+    if (c.at<=V.t){ try{ c.fn(); }catch(err){ console.error(err); } }
+    else keep.push(c);
+  }
+  V.cue=keep;
+}
+function showcase(){
+  demo=false;
+  for (const n of FAKE.slice(0,8)) Game.chat(n, "hey");
+  setScene("lounge");
+  const at=(delay, fn)=>V.cue.push({at:V.t+delay, fn});
+  at(1.0, ()=>{ const h=heroes(); if (h[0]&&h[1]) goIntent(h[0],"hug",h[1]); });
+  at(2.6, ()=>{ const h=heroes(); if (h[2]&&h[3]) goIntent(h[2],"attack",h[3]); });
+  at(4.0, ()=>{ const h=heroes(); if (h[4]) plantBomb(h[4]); });
+  at(4.4, ()=>{ const h=heroes(); if (h[5]) doSlots(h[5], 10); });
+  at(8.0, ()=>{ const h=heroes(); if (h[6]&&h[7]) startDuel(h[6], h[7], 0, true); });
+  $("setup").classList.remove("on");
+}
+
+/* ==================================================================
    GAME EVENTS
    The only way the outside world touches the game. Platforms translate
    their own wire formats into these four calls and nothing else, so a
    second platform is a new transport, not a change in here.
 ================================================================== */
 const Game = {
-  chat(name, text, color){
-    const a = joinHero(name, color);
-    if (a.rec){ a.rec.msgs++; if (a.rec.msgs % 10 === 0) Save.put(); }
+  chat(name, text, color, tags){
+    tags = tags || {};
     const t = (text||"").trim();
-    if (t[0] !== "!") return;
-    const [cmd, ...rest] = t.slice(1).split(/\s+/);
-    const c = cmd.toLowerCase(), arg = rest.join(" ");
-    if (["jump","dance","sit","wave","hat","stats","charge"].includes(c)) act(a,c);
-    else if (c==="color" || c==="colour") act(a,"color",arg);
+    const parts = t[0]==="!" ? t.slice(1).split(/\s+/) : [];
+    const cmd = parts[0] ? parts[0].toLowerCase() : "";
+    const rec = Save.get(name);
+    if (rec.hidden){
+      if (cmd==="hideavatar" || cmd==="hide"){
+        rec.hidden = false; Save.put();
+        joinHero(name, color);
+        log([{t:name,c:"c-t"},{t:" is back",c:"c-v"}]);
+      }
+      return;
+    }
+    const a = joinHero(name, color);
+    if (!a) return;
+    if (V.t - (a.payT||0) > 12){
+      a.payT = V.t; coinsOf(a.rec); a.rec.coins += 1;
+    }
+    a.rec.msgs++;
+    if (a.rec.msgs % 10 === 0) Save.put();
+    if (!cmd) return;
+    runCmd(a, cmd, parts.slice(1), tags);
   },
   follow(name){
     spawnMonster(name);
@@ -1503,7 +2538,7 @@ function onChat(line){
   const m=line.match(/^:([^!]+)![^ ]+ PRIVMSG #[^ ]+ :(.*)$/);
   if(!m) return;
   Game.chat(tags["display-name"]||m[1], m[2],
-            /^#[0-9a-f]{6}$/i.test(tags.color||"") ? tags.color : null);
+            /^#[0-9a-f]{6}$/i.test(tags.color||"") ? tags.color : null, tags);
 }
 
 /* ==================================================================
@@ -1621,9 +2656,54 @@ function demoTick(dt){
   else if(r<.88) dropLoot(n);
   else if(!(V.boss&&V.boss.alive)) spawnBoss(n);
 }
-function startDemo(){ demo=true; demoT=.3;
+function startDemo(){
+  SCENE="war";
+  demo=true; demoT=.6;
+  for (let i=0;i<8;i++) Game.chat(FAKE[i], "hello");
+  for (let i=0;i<5;i++) spawnMonster(FAKE[8+i]);
   log([{t:"DEMO",c:"c-l"},{t:" — fake chatters, no Twitch connection",c:"c-v"}]);
-  $("setup").classList.remove("on"); }
+  $("setup").classList.remove("on");
+}
+
+addEventListener("message", (ev)=>{
+  const d=ev.data;
+  if (!d || d.ns!=="jv") return;
+  const n=pick(FAKE);
+  if (d.cmd==="demo"){ if (!demo) startDemo(); else demo=false; }
+  else if (d.cmd==="hero") Game.chat(n, "hello");
+  else if (d.cmd==="monster"){ SCENE="war"; spawnMonster(n); }
+  else if (d.cmd==="boss"){ if (!MG.kind){ SCENE="war"; spawnBoss(n); } }
+  else if (d.cmd==="loot") dropLoot(n);
+  else if (d.cmd==="setup") openSetup();
+  else if (d.cmd==="hangout") showcase();
+  else if (d.cmd==="lounge") setScene("lounge");
+  else if (d.cmd==="war") setScene("war");
+  else if (d.cmd==="duel"){
+    clearMG();
+    if (heroes().length<2){ Game.chat(FAKE[0],"a"); Game.chat(FAKE[1],"b"); }
+    const h=heroes(); startDuel(h[0], h[1], 0, true);
+  }
+  else if (d.cmd==="slots"){
+    const h=heroes()[0] || joinHero(n); doSlots(h, 10);
+  }
+  else if (d.cmd==="royale"){
+    clearMG();
+    if (heroes().length<4) for (let i=0;i<6;i++) Game.chat(FAKE[i], "yo");
+    startRoyale();
+    V.cue.push({at:V.t+0.6, fn(){
+      if (MG.kind!=="royale-join") return;
+      for (const h of heroes()) if (!MG.roster.includes(h)) MG.roster.push(h);
+    }});
+  }
+  else if (d.cmd==="hoop"){
+    clearMG();
+    if (heroes().length<3) for (let i=0;i<5;i++) Game.chat(FAKE[i], "yo");
+    startHoop();
+    V.cue.push({at:V.t+0.7, fn(){
+      heroes().forEach((e,i)=>shootBall(e, i%2?5:4));
+    }});
+  }
+});
 
 /* ==================================================================
    SETUP / KEYS / BOOT
@@ -1647,11 +2727,24 @@ $("b-wipe").onclick=()=>{ Save.wipe(); V.ents.length=0; V.props.length=0;
 addEventListener("keydown",e=>{
   if($("setup").classList.contains("on") && e.key!=="Escape") return;
   const k=e.key.toLowerCase(), n=pick(FAKE);
-  if(k==="b") spawnBoss(n);
-  else if(k==="m") spawnMonster(n);
+  if(k==="b"){ SCENE="war"; spawnBoss(n); }
+  else if(k==="m"){ SCENE="war"; spawnMonster(n); }
   else if(k==="h") joinHero(n);
   else if(k==="l") dropLoot(n);
-  else if(k==="d"){ demo=!demo; demoT=.2; log([{t:demo?"Demo on":"Demo off",c:"c-l"}]); }
+  else if(k==="g") showcase();
+  else if(k==="r"){
+    if (heroes().length<4) for (let i=0;i<6;i++) Game.chat(FAKE[i], "yo");
+    startRoyale();
+    V.cue.push({at:V.t+0.4, fn(){
+      if (MG.kind!=="royale-join") return;
+      for (const h of heroes()) if (!MG.roster.includes(h)) MG.roster.push(h);
+    }});
+  }
+  else if(k==="k"){
+    if (heroes().length<3) for (let i=0;i<4;i++) Game.chat(FAKE[i], "yo");
+    startHoop();
+  }
+  else if(k==="d"){ SCENE="war"; demo=!demo; demoT=.2; log([{t:demo?"Demo on":"Demo off",c:"c-l"}]); }
   else if(k==="s"||e.key==="Escape") $("setup").classList.toggle("on");
 });
 
@@ -1667,9 +2760,27 @@ addEventListener("keydown",e=>{
 let last=performance.now();
 (function frame(now){
   const dt=Math.min((now-last)/1000,.05); last=now;
-  step(dt); demoTick(dt); render(); hud(dt);
+  try {
+    step(dt); stepSocial(dt); stepCue(); demoTick(dt); render(); hud(dt);
+  } catch (err) {
+    if (!window.__jvErr) {
+      window.__jvErr = String(err && (err.stack || err.message) || err);
+      console.error(err);
+      try { log([{t:"Overlay hiccup",c:"c-h"},{t:" — "+(err.message||err),c:"c-v"}]); } catch (e) {}
+    }
+  }
   requestAnimationFrame(frame);
 })(performance.now());
+
+if (Q.get("review")==="1"){
+  window.__jv = function(){
+    return V.ents.filter(e=>e.alive).map(e=>({
+      name:e.name, side:e.side, x:Math.round(e.x), y:Math.round(e.y),
+      face:e.face, state:e.state, moving:!!e.moving,
+      swing:Math.round((e.swing||0)*100)/100, cls:e.cls||e.spriteKey
+    }));
+  };
+}
 
 if(CFG.demo) startDemo();
 else if(CFG.channel){ PLATFORM.connect(CFG); }
