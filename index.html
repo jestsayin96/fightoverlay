@@ -1037,7 +1037,7 @@ function step(dt){
 
   for (const p of V.props) if (p.alive) p.bob += dt*3;
   V.props = V.props.filter(p=>p.alive);
-  V.ents  = V.ents.filter(e=>e.alive || (V.t - e.fading) < 1.2);
+  V.ents  = V.ents.filter(e=>e.alive || (V.t - e.fading) < fadeLife(e));
 }
 
 /* ==================================================================
@@ -1159,6 +1159,15 @@ defSprite("mob_skelet",
 BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
   {idle:"boss_"+b+"_idle.png", walk:"boss_"+b+"_walk.png"}));
 
+/* The first boss drawn here: 112x112 cells, feet at (56,102). It stands
+   88px against the 0x72 bosses' 90px, so it drops in beside them without
+   rescaling, and it is the only boss with real attack and death clips.
+   Defined after the loop above so it replaces the 0x72 ogre. The bbox
+   centre is the torso centre for once: the two arms jut equally. */
+defSprite("boss_ogre",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:112, ch:112, ax:56, ay:102, fh:88, dir:"sprites/ogre/"});
+
 function spriteSetFor(e){
   const set = SPRITES[e.spriteKey];
   return (set && set.idle && set.idle.ready) ? set : null;
@@ -1167,9 +1176,25 @@ function spriteSetFor(e){
 /* which animation, and which frame of it.
    The pack has no attack or death cells. Strike poses borrow the hurt
    frame as the contact, and death is a topple of that same cell. */
+/* a body with a drawn collapse stays a little longer: the clip needs 0.84s
+   to land and the heap should be seen before it goes */
+function fadeLife(e){
+  const s = spriteSetFor(e);
+  return (s && s.death && s.death.ready) ? 1.9 : 1.2;
+}
+
 function animOf(e, set){
   const hasAtk  = set.attack && set.attack.ready;
   const hasDead = set.death  && set.death.ready;
+  /* Monsters and bosses never enter the "down" state: down() retires them
+     outright and they fade. Keying the collapse off "down" alone meant the
+     drawn death clip only ever played for knocked-down heroes, and every
+     monster died playing its idle. Key it off the fade too. */
+  if (!e.alive && hasDead){
+    const a = set.death;
+    const k = clamp((V.t - e.fading) / 0.84, 0, 1);   // land, then hold
+    return {a, f:Math.min(a.frames-1, Math.floor(k*a.frames)), real:true};
+  }
   if (e.state === "down"){
     if (hasDead){
       const a = set.death;
@@ -2012,11 +2037,19 @@ function render(){
     cx.beginPath(); cx.ellipse(0,1,13*s,4*s,0,0,6.283); cx.fillStyle="#000"; cx.fill();
     cx.globalAlpha/=.3;
     if (!e.alive){
-      const k=clamp((V.t-e.fading)/1.2,0,1);
-      cx.globalAlpha=Math.max(0,1-k*k);
-      cx.rotate(-e.face*Math.min(1.25, k*1.7));
-      cx.translate(0, k*30);
-      cx.scale(1, Math.max(0.4, 1-k*0.5));
+      const k = clamp((V.t-e.fading)/fadeLife(e), 0, 1);
+      const sd = spriteSetFor(e);
+      if (sd && sd.death && sd.death.ready){
+        /* the clip already does the falling; rotating and squashing it on
+           top fought the drawn pose. Hold it, then fade over the last third */
+        const f = clamp((k-0.62)/0.38, 0, 1);
+        cx.globalAlpha = Math.max(0, 1 - f*f);
+      } else {
+        cx.globalAlpha=Math.max(0,1-k*k);
+        cx.rotate(-e.face*Math.min(1.25, k*1.7));
+        cx.translate(0, k*30);
+        cx.scale(1, Math.max(0.4, 1-k*0.5));
+      }
     }
     if (e.state==="down" && !spriteSetFor(e)){
       const p=(e.fallT||0)>0 ? 1-e.fallT/0.42 : 1;
