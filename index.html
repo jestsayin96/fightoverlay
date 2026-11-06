@@ -238,7 +238,7 @@ const T = {
      for the whole opening - it was reaching 1.59 before the first
      knockdown pulled it back, which is why a three-viewer stream got
      hit hardest. */
-  powerMax:   1.25,
+  powerMax:   1.90,
   spawnBurst: 4,       // how many can arrive at once while the line is thin
   mendTargets:4,       // a heal reaches this many allies...
   mendAmount: 28,      // ...for this much each
@@ -397,7 +397,16 @@ function steerDifficulty(dt){
   const n = Math.max(1, heroes().length);
   V.downRate = V.downEma * 2 / n;
   const derr = V.downRate - T.targetDowns;       // +ve: too brutal
-  V.mobPower = clamp(V.mobPower - derr * T.powerRate * dt,
+  /* Asymmetric on purpose: back off fast, lean in slowly. The runaway
+     this controller used to have was all in the rise - downRate reads 0
+     before anyone has been knocked down, so "too easy" is the opening
+     state of every stream and the loop ramped monsters hard for the
+     whole first minute. Capping the ceiling fixed that but left a
+     three-viewer crowd pinned at the top and still never knocked down.
+     Rising at a third of the rate lets the ceiling go back up without
+     the opening ramp running away. */
+  const rate = derr > 0 ? T.powerRate : T.powerRate * 0.35;
+  V.mobPower = clamp(V.mobPower - derr * rate * dt,
                      T.powerMin, T.powerMax);
 }
 function recordMobLife(e){
@@ -524,7 +533,25 @@ function act(a, what, arg){
    ABILITIES
 ================================================================== */
 function fx(o){ o.age=0; V.fx.push(o); return o; }
-function num(x,y,txt,col){ fx({k:"num",x,y,txt,col,life:1.1}); }
+/* Merge into a number already floating near this spot rather than
+   stacking a second one on top of it. At the combat density the overlay
+   now runs, damage numbers were landing three and four deep on the same
+   fighter and the pile was the least readable thing on screen. Adding
+   them up is also more informative than two numbers fighting for the
+   same pixels. Strings like "+2" never merge. */
+function num(x,y,txt,col){
+  const v = typeof txt === "number" ? txt : null;
+  if (v != null){
+    for (const f of V.fx){
+      if (f.k === "num" && f.val != null && f.col === col &&
+          f.age < 0.45 && Math.abs(f.x - x) < 30 && Math.abs(f.y - y) < 30){
+        f.val += v; f.txt = String(f.val); f.age = 0; f.life = 0.85;
+        return f;
+      }
+    }
+  }
+  return fx({k:"num", x, y, txt:String(txt), col, life:0.85, val:v});
+}
 
 function abHit(src,dst,dmg,col){
   if(!dst || !dst.alive || dst.state==="down") return;
@@ -2056,7 +2083,7 @@ function drawFx(c){
         break; }
       case "num":
         c.globalAlpha=Math.min(1,fade*1.6);
-        c.font='700 26px "Silkscreen",monospace';
+        c.font='700 23px "Silkscreen",monospace';
         c.textAlign="center"; c.lineJoin="round";
         c.lineWidth=5; c.strokeStyle="rgba(0,0,0,.9)";
         c.strokeText(f.txt, f.x, f.y - k*42);
