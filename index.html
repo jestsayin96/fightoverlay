@@ -947,6 +947,10 @@ function lineGoal(e, foe){
        frame, 220px apart, and that is where everyone meets - the next
        thing to try is spreading the formation itself, which costs no
        walking because it is where they already stand. */
+    const cols = 11;
+    const w    = (T.fightRight - T.fightLeft) / (cols - 1);
+    const mid  = (e.x + foe.x) / 2;
+    const col  = clamp(Math.round((mid - T.fightLeft) / w), 0, cols - 1);
     const meet = T.fightLeft + col * w;
     return { x: meet - e.side*(T.engage*0.5),
              y: T.stripTop + 9 + (slot/(lanes-1)) * band };
