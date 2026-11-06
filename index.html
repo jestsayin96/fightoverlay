@@ -2458,17 +2458,11 @@ function coinsOf(rec){
   if (!rec.owned) rec.owned = [];
   return rec.coins;
 }
-/* Chat bots are not viewers. A live test against the real socket put
-   StreamElements on the field as a fighter, levelling up and earning coins
-   off its own command replies. These are the accounts most streams run;
-   a bot posting every few seconds would otherwise become the highest
-   level "viewer" in the village. */
-const BOTS = new Set(["streamelements","nightbot","streamlabs","moobot",
-  "fossabot","wizebot","sery_bot","own3d","botrixoficial","pretzelrocks",
-  "soundalerts","blerp","commanderroot","lurkbot","kofistreambot",
-  "creatisbot","tangiabot","drpancakebot","buttsbot","streamstickers",
-  "jest_bot"]);
-function isBot(name){ return BOTS.has(String(name||"").toLowerCase()); }
+/* Chat bots fight too, on purpose. A previous version filtered
+   StreamElements and friends out as "not real viewers"; the streamer
+   wants them in - a bot posting steadily is another body helping against
+   the mobs, which is the point of the overlay rather than a bug in it.
+   Left documented so nobody re-adds the filter as a tidy-up. */
 
 function privileged(name, tags){
   tags = tags || {};
@@ -3030,7 +3024,6 @@ function showcase(){
 const Game = {
   chat(name, text, color, tags){
     tags = tags || {};
-    if (isBot(name)) return;            // bots are furniture, not viewers
     const t = (text||"").trim();
     const parts = t[0]==="!" ? t.slice(1).split(/\s+/) : [];
     const cmd = parts[0] ? parts[0].toLowerCase() : "";
