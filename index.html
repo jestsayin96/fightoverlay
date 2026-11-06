@@ -180,8 +180,17 @@ const Q = new URLSearchParams(location.search);
 const SAVE = "jv-save-v1", CFGK = "jv-cfg-v1";
 
 const T = {
-  stripTop:   935,     // the lane: avatars live between these two lines
-  stripBot:   1046,
+  /* The lane. Widened from 111px to 161px, which is the one change that
+     actually unpiled the crowd: measured over 24s with 16 heroes, bodies
+     close enough to overlap on screen went from 62 pairs to 31, with the
+     combat rate unchanged. Spreading them HORIZONTALLY was the obvious
+     idea and it failed three different ways - snapping duels to columns,
+     dealing columns by rank, and widening the fight band all either cost
+     combat or landed inside run-to-run noise. The pile was vertical.
+     Costs about 40px of frame height: the tallest boss's head now
+     reaches y805 instead of y845, still inside the bottom quarter. */
+  stripTop:   895,
+  stripBot:   1056,
   heroGate:   -50,     // heroes walk on from here
   mobGate:    1970,    // monsters walk on from here
   heroHold:   860,     // with nothing to fight, heroes hold this line

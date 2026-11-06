@@ -10,6 +10,31 @@ bottom of the frame. Runs as a single OBS Browser Source.
 ---
 
 
+## The crowd piles up vertically, not horizontally
+
+Worth knowing before you try to fix the clumping, because three obvious
+approaches were tried and measured and all of them failed.
+
+The fight concentrates: with 16 heroes, 60% of the bodies sit in the
+busiest four of sixteen screen columns. Attempts to spread them sideways:
+
+| approach | spread | cost |
+|---|---|---|
+| snap each duel to the nearest of 11 columns | 63% -> 60% | none, kept |
+| deal columns to duels by rank order | 63% -> 55% | combat 43% -> 22% |
+| widen the fight band (four widths tried) | no change | within noise |
+| rally each pair to a computed meeting point | good | kill rate -75% |
+
+Rank-dealing and rally points both fail the same way: `assignFoes`
+re-pairs by distance every 0.4s, so the assignment keeps changing and
+fighters chase a target that moves out from under them.
+
+What actually worked was the other axis. Widening the lane from 111px to
+161px halved the bodies close enough to overlap on screen - 62 pairs to
+31 - with combat unchanged. If it still looks crowded, widen the lane
+further before touching the horizontal logic again; 185px was measured
+at 28 pairs, so there is a little more room, with diminishing returns.
+
 ## Art pipeline (Pixelwright -> overlay)
 
 Every character on the field is original art now. Nothing borrows the
