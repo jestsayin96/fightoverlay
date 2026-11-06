@@ -1119,6 +1119,14 @@ defSprite("knight",
   {cw:80, ch:80, ax:36, ay:74, fh:66, dir:"sprites/knight/"});
 MOB_SPRITES.forEach(m=>defSprite("mob_"+m,
   {idle:"mob_"+m+"_idle.png", walk:"mob_"+m+"_walk.png"}));
+
+/* Original art, same pipeline as the knight: 80x80 cells, feet at (38,72).
+   It stands 52px where the 0x72 monsters stand 30px, because that pack
+   draws its monsters at half the height of its heroes and the replacements
+   use a more natural 1.3:1. The rest of the pack follows. */
+defSprite("mob_goblin",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:38, ay:72, fh:52, dir:"sprites/goblin/"});
 BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
   {idle:"boss_"+b+"_idle.png", walk:"boss_"+b+"_walk.png"}));
 

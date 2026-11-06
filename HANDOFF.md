@@ -12,7 +12,14 @@ bottom of the frame. Runs as a single OBS Browser Source.
 
 ## Art pipeline (Pixelwright -> overlay)
 
-The knight is original art and the template for replacing the rest.
+The knight and the goblin are original art and the template for the rest.
+`tools_build_knight.py` is now `build_char.py <name> <srcdir> <outdir>` and
+works for any character the same way.
+
+Scale note: the 0x72 pack draws monsters at half its heroes' height (30px
+against 60px). The replacements use a more natural ratio - knight 66px,
+goblin 52px - so until the pack is fully replaced a new monster stands
+noticeably taller than the 0x72 ones beside it.
 
 1. Draw the rig in Pixelwright (parts + variants). Parts **cannot rotate**, so a
    sword swing needs a redrawn arm/blade per key pose, plus `smear` variants for
