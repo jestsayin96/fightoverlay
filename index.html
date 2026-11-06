@@ -715,34 +715,62 @@ function drawHat(c,hat,col){
 
 /* ==================================================================
    SPRITE SHEETS
-   Real pixel art, drawn at 1:1 so the pixels stay crisp. A sheet is a
-   row of equal cells; `anchor` is where the character's feet sit inside
-   a cell, so sprites and rig characters stand on the same line.
+   Real pixel art, drawn 1:1 so the pixels stay crisp. Every animation
+   shares one 96x104 cell with the feet anchored at (48,96), so a
+   character never jumps when it switches animation.
 ================================================================== */
+const CELL_W=96, CELL_H=104, ANCHOR_X=48, ANCHOR_Y=96;
+
 const SHEETS = {
-  knight: { src:"sprites/knight_walk.png", cellW:80, cellH:80,
-            frames:4, anchorX:37, anchorY:73, img:null, ready:false },
+  knight: {
+    idle:  {src:"sprites/knight_idle.png",   frames:4, fps:6,  loop:true},
+    walk:  {src:"sprites/knight_walk.png",   frames:4, fps:0,  loop:true},  // fps 0 = driven by stride
+    attack:{src:"sprites/knight_attack.png", frames:5, fps:14, loop:false},
+    death: {src:"sprites/knight_death.png",  frames:5, fps:8,  loop:false},
+  },
 };
-for (const k in SHEETS){
-  const sh=SHEETS[k], i=new Image();
-  i.onload=()=>{ sh.ready=true; };
-  i.onerror=()=>{ console.warn("sprite missing:", sh.src); };
-  i.src=sh.src; sh.img=i;
+for (const cls in SHEETS){
+  for (const anim in SHEETS[cls]){
+    const a=SHEETS[cls][anim], i=new Image();
+    a.img=i; a.ready=false;
+    i.onload=()=>{ a.ready=true; };
+    i.onerror=()=>console.warn("sprite missing:", a.src);
+    i.src=a.src;
+  }
 }
-function sheetFor(e){
-  if (e.side!==1 || !e.cls) return null;
-  const sh=SHEETS[e.cls];
-  return (sh && sh.ready) ? sh : null;
+function hasSheets(e){
+  const set = (e.side===1 && e.cls) ? SHEETS[e.cls] : null;
+  return (set && set.idle.ready) ? set : null;
 }
-function drawSprite(c, e, sh){
-  // 4 walk frames over one stride; frame 0 when standing still
-  const f = e.moving ? (Math.floor(e.walk/(Math.PI/2)) % sh.frames + sh.frames) % sh.frames : 0;
+
+/* which animation an entity is in, and how far through it */
+function animOf(e, set){
+  if (e.state === "down"){
+    const t = Math.max(0, 9 - e.stateT);                 // 9s knockdown timer
+    const a = set.death;
+    return {a, f: Math.min(a.frames-1, Math.floor(t*a.fps))};
+  }
+  if (e.swing > 0){
+    const a = set.attack;
+    const k = 1 - Math.max(0, Math.min(1, e.swing));     // 0 -> 1 across the swing
+    return {a, f: Math.min(a.frames-1, Math.floor(k*a.frames))};
+  }
+  if (e.moving){
+    const a = set.walk;
+    return {a, f: ((Math.floor(e.walk/(Math.PI/2)) % a.frames) + a.frames) % a.frames};
+  }
+  const a = set.idle;
+  return {a, f: Math.floor(V.t*a.fps) % a.frames};
+}
+
+function drawSprite(c, e, set){
+  let {a,f} = animOf(e,set);
+  if (!a.ready) a = set.idle, f = 0;                     // fall back while loading
   c.save();
   c.imageSmoothingEnabled = false;
-  c.scale(e.face, 1);                       // mirror to face left
-  if (e.state==="down") c.rotate(0.9);
-  c.drawImage(sh.img, f*sh.cellW, 0, sh.cellW, sh.cellH,
-              -sh.anchorX, -sh.anchorY, sh.cellW, sh.cellH);
+  c.scale(e.face, 1);
+  c.drawImage(a.img, f*CELL_W, 0, CELL_W, CELL_H,
+              -ANCHOR_X, -ANCHOR_Y, CELL_W, CELL_H);
   c.restore();
 }
 
@@ -1118,8 +1146,8 @@ function layoutPlates(c){
     const fs = Math.max(14, 14*Math.min(s,1.7));
     c.font = "700 "+fs.toFixed(1)+'px "Silkscreen",monospace';
     const w = c.measureText(e.name).width + 10;
-    const sh2 = sheetFor(e);
-    let top = sh2 ? (e.y + e.gy - sh2.anchorY - 8)
+    const sh2 = hasSheets(e);
+    let top = sh2 ? (e.y + e.gy - ANCHOR_Y - 6)
                   : (e.y + e.gy - 62*s - (e.isBoss?62:12));
     const h = fs + 10;
     // walk upward until this plate clears the ones already placed
@@ -1288,16 +1316,16 @@ function render(){
     cx.globalAlpha/=.3;
     if (!e.alive){ const k=(V.t-e.fading)/1.2;
       cx.globalAlpha=Math.max(0,1-k); cx.translate(0,k*18); cx.rotate(k*.5); }
-    if (e.state==="down") cx.rotate(e.side*0.9);
-    if (!sheetFor(e)) cx.scale(s/1.62, s/1.62);
+    if (e.state==="down" && !hasSheets(e)) cx.rotate(e.side*0.9);
+    if (!hasSheets(e)) cx.scale(s/1.62, s/1.62);
     if (e.flash>0 && Math.random()<.6) cx.globalAlpha*=.45;
-    const sh = sheetFor(e);
+    const sh = hasSheets(e);
     if (sh)              drawSprite(cx,e,sh);
     else if (e.isBoss)   drawBoss(cx,e);
     else if (e.side===1) drawHero(cx,e);
     else                 drawMonster(cx,e);
     cx.restore();
-    if (e.alive && e.state!=="down") queuePlate(e);
+    if (e.alive && (e.state!=="down" || hasSheets(e))) queuePlate(e);
   }
   layoutPlates(cx);
   drawShots(cx);
