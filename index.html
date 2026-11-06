@@ -1245,7 +1245,8 @@ const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian",
    by silhouette first and colour second, so a line of them does not read
    as one sprite repeated even before the runtime palette swap. */
 const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp",
-                       "chort","zombie","masked_orc","swampy","wraith"];
+                       "chort","zombie","masked_orc","swampy","wraith",
+                       "kobold"];
 const BOSS_SPRITES  = ["demon","ogre","bigzombie"];
 
 const SPRITES = {};
@@ -1392,6 +1393,17 @@ defSprite("mob_swampy",
 defSprite("mob_wraith",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:40, ay:76, fh:56, dir:"sprites/wraith/"});
+
+/* The Kobold, 46px - the smallest thing on the field, under the Imp's 50.
+   MONSTER_KINDS has named Kobolds from the start with nothing to show for
+   it, same as the Wraith. A snout, two tall ears and a tail make it read
+   as an animal rather than a short person, which is what the other small
+   monsters already are, and it fights with a crude spear it thrusts
+   rather than swings. Its leg drops its outline where the spear shaft
+   runs beside it, so the two do not meet as a 2px seam. */
+defSprite("mob_kobold",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:76, fh:46, dir:"sprites/kobold/"});
 BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
   {idle:"boss_"+b+"_idle.png", walk:"boss_"+b+"_walk.png"}));
 

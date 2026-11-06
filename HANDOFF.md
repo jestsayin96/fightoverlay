@@ -99,6 +99,7 @@ than a squash (see below).
 | mob_masked_orc | 58px | 80x80 | (40,74) |
 | mob_swampy | 58px tall, 74px wide | 80x80 | (40,74) |
 | mob_wraith | 56px, legless | 80x80 | (40,76) |
+| mob_kobold | 46px | 80x80 | (40,76) |
 | boss_demon | 90px | 112x112 | (58,102) |
 | boss_ogre | 88px | 112x112 | (56,102) |
 | boss_bigzombie | 88px | 112x112 | (58,102) |
