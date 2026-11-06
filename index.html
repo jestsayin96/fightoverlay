@@ -418,8 +418,16 @@ function steerDifficulty(dt){
   V.mobPower = clamp(V.mobPower - derr * rate * dt,
                      T.powerMin, T.powerMax);
 }
+/* How long a monster lasts ONCE SOMEONE ENGAGES IT, not how long it has
+   existed. Measuring from spawn fed the toughness controller a number it
+   could not act on: with more monsters than heroes, the spare ones wander
+   unfought and their long lives dragged the average to 16s against a 9s
+   target, pinning mobTough at its floor and making the monsters that were
+   actually being fought die far too quickly. */
 function recordMobLife(e){
-  const life = V.t - (e.born || V.t);
+  const start = e.firstHit != null ? e.firstHit : e.born;
+  if (e.firstHit == null) return;                // never fought: tells us nothing
+  const life = V.t - (start || V.t);
   V.lifeAvg = V.lifeAvg * 0.86 + life * 0.14;    // rolling mean
 }
 function findHero(name){ const k=name.toLowerCase();
@@ -797,6 +805,7 @@ function hit(src, dst){
   const dmg = src.atk * (src.isBoss ? 1 : (0.85 + Math.random()*0.3))
               * (src.side===-1 && !src.isBoss ? V.mobPower : 1);
   dst.hp -= dmg; dst.flash = .28; src.swing = 1;
+  if (dst.firstHit == null) dst.firstHit = V.t;   // steers difficulty, below
   // the clash itself: a slash arc where the weapon lands, sparks, a number
   const mx = (src.x + dst.x)/2, my = dst.y - 34;
   fx({k:"slash", x:mx, y:my, dir:Math.sign(dst.x-src.x)||1,
@@ -1180,16 +1189,14 @@ const CELL_W=112, CELL_H=120, ANCHOR_X=56, ANCHOR_Y=112;
 const SPRITE_DIR="sprites/dungeon/";
 
 const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian"];
-/* Only the monsters that have been redrawn are in play. The 0x72 sheets
-   for the rest are still in sprites/dungeon and still listed in
-   LICENSES.md, but mixing them in put 30px monsters shoulder to shoulder
-   with 52px ones. Two types is fewer than eight; the runtime palette swap
-   gives each viewer's monster its own colour, so the far line still does
-   not look like one sprite repeated. Add names back here as they are
-   drawn. */
-const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp","chort"];
-const MOB_SPRITES_RETIRED = ["zombie",
-                             "masked_orc","swampy"];
+/* All eight monsters are now drawn here, so the 0x72 sheets are out of
+   play entirely: they are still in sprites/dungeon and still listed in
+   LICENSES.md, but nothing references them. Mixing them in had put 30px
+   monsters shoulder to shoulder with 52px ones. The eight are kept apart
+   by silhouette first and colour second, so a line of them does not read
+   as one sprite repeated even before the runtime palette swap. */
+const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp",
+                       "chort","zombie","masked_orc","swampy"];
 const BOSS_SPRITES  = ["demon","ogre","bigzombie"];
 
 const SPRITES = {};
@@ -1277,6 +1284,31 @@ defSprite("mob_imp",
 defSprite("mob_chort",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:40, ay:74, fh:58, dir:"sprites/chort/"});
+
+/* The Zombie, 58px. Brown flesh with green rot and one bared bone hand -
+   kept off both the skeleton's all-bone palette and the Big Zombie
+   boss's green, so the three undead read as three different stages of
+   the same unpleasant process rather than three sizes of one monster. */
+defSprite("mob_zombie",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:58, dir:"sprites/zombie/"});
+
+/* The Masked Orc, 58px. Grey hide under a red war mask with white eye
+   slits - the only monster whose face is hidden, which is the whole
+   point of it: at stream size you read the mask, not a head. */
+defSprite("mob_masked_orc",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:58, dir:"sprites/masked_orc/"});
+
+/* Swampy, 58px tall and 74px wide - the only monster wider than it is
+   tall. Seven upright humanoids were starting to read as one shape in
+   different colours, so this one is a low bog mound with a bump head and
+   a pseudopod instead of an arm. It dies by flattening into a puddle,
+   which is the one death in the cast that is not a figure falling over.
+   Symmetric, so build_char.py's anchor needed no correction. */
+defSprite("mob_swampy",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:58, dir:"sprites/swampy/"});
 BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
   {idle:"boss_"+b+"_idle.png", walk:"boss_"+b+"_walk.png"}));
 

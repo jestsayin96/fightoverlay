@@ -37,9 +37,17 @@ at 28 pairs, so there is a little more room, with diminishing returns.
 
 ## Art pipeline (Pixelwright -> overlay)
 
-Every character on the field is original art now. Nothing borrows the
-0x72 pack's hurt frame to fake an attack, and nothing carries an upstream
-licence.
+Every character on the field is original art now: six heroes, eight
+monsters, three bosses. Nothing borrows the 0x72 pack's hurt frame to
+fake an attack, nothing carries an upstream licence, and nothing in
+`sprites/dungeon/` is referenced any more.
+
+Eight upright humanoids would have read as one shape in eight colours at
+stream size, so the last monster drawn, Swampy, is deliberately wider
+than it is tall: a bog mound with a bump head and a pseudopod instead of
+an arm. It is the only death in the cast that is not a figure falling
+over -- it flattens into a puddle, via a second `body` variant rather
+than a squash (see below).
 
 | set | height | cells | feet |
 |---|---|---|---|
@@ -54,6 +62,9 @@ licence.
 | mob_orc_warrior | 62px | 80x80 | (40,74) |
 | mob_imp | 50px | 80x80 | (40,74) |
 | mob_chort | 58px | 80x80 | (40,74) |
+| mob_zombie | 58px | 80x80 | (40,74) |
+| mob_masked_orc | 58px | 80x80 | (40,74) |
+| mob_swampy | 58px tall, 74px wide | 80x80 | (40,74) |
 | boss_demon | 90px | 112x112 | (58,102) |
 | boss_ogre | 88px | 112x112 | (56,102) |
 | boss_bigzombie | 88px | 112x112 | (58,102) |
@@ -88,10 +99,22 @@ lane with the 80x80 heroes.
    weapon, or the Demon's wing, which dragged `ax` 10px off - so use the
    centre of the feet; and the figure height is whatever you happened to
    draw, so compare it against the table above before accepting it.
-7. Monsters: add the name to `MOB_SPRITES` (and drop it from
-   `MOB_SPRITES_RETIRED`). Bosses: add a `defSprite` *after* the
-   `BOSS_SPRITES.forEach` loop so it overrides the 0x72 entry that loop
-   makes.
+7. Monsters: add the name to `MOB_SPRITES`. Bosses: add a `defSprite`
+   *after* the `BOSS_SPRITES.forEach` loop so it overrides the 0x72
+   entry that loop makes.
+
+**A big squash breaks the outline; draw the extreme pose as a variant
+instead.** `rows: -n` takes rows out of the middle and leaves the rest
+untouched, so the moment it eats past a shape's uniform middle it stacks
+a wide row straight onto a narrow one and the outline cannot get round
+the corner. Swampy's `-12` collapse produced gaps the shoulders and the
+tapered base could not be redrawn out of, because no single silhouette
+survives being cut by two thirds. The fix was a second `body` variant
+drawn as an actual puddle, switched in for the last two death frames.
+Stretching has the mirror-image fault: `rows: +n` repeats the middle row,
+so a row with a 3-wide side outline becomes a solid dark slab. If a pose
+needs more than about a third of a part removed or added, it is a new
+picture, not a transform.
 
 **Two mistakes that cost the most time, both the same shape.** An edge
 that steps sideways faster than one pixel per row leaves the outline
@@ -176,9 +199,9 @@ the character's class.
 
 ### Art
 `sprites/dungeon/` — 0x72 "DungeonTileset II", CC0. Still vendored, no longer
-drawn: every hero, monster and boss on the field is original art. Six monster
-names sit in `MOB_SPRITES_RETIRED` in `index.html` and are out of rotation
-until they are redrawn; nothing else references the pack.
+drawn: every hero, monster and boss on the field is original art, and no name
+is held back waiting to be redrawn. Nothing in `index.html` references the
+pack; it could be deleted outright without changing what the overlay draws.
 
 `sprites/knight_*.png` — generated, unused. Kept as a reference for the
 extraction pipeline. Its walk frames differ by only 3-6% of silhouette, so the

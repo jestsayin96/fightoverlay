@@ -40,6 +40,9 @@ fit for anything sellable. Don't use it here.
 | `sprites/orc_warrior/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (40,74), 62px tall. 2/4/7/4 frames. Replaces the 0x72 orc warrior and returns it to rotation. |
 | `sprites/imp/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (40,74), 50px tall. 2/4/7/4 frames. Replaces the 0x72 imp and returns it to rotation. |
 | `sprites/chort/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (40,74), 58px tall. 2/4/7/4 frames. Replaces the 0x72 chort and returns it to rotation. |
+| `sprites/zombie/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (40,74), 58px tall. 2/4/7/4 frames. Replaces the 0x72 zombie and returns it to rotation. |
+| `sprites/masked_orc/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (40,74), 58px tall. 2/4/7/4 frames. Replaces the 0x72 masked orc and returns it to rotation. |
+| `sprites/swampy/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 40x40 art exported at 2x -> 80x80 cells, feet at (40,74), 58px tall and 74px wide. 2/4/7/4 frames. Replaces the 0x72 swampy and returns it to rotation. **All eight monsters are now original**, so nothing in `sprites/dungeon/` is referenced any more. |
 | `sprites/ogre/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 56x56 art exported at 2x -> 112x112 cells, feet at (56,102), 88px tall. 2/4/7/4 frames. Replaces the 0x72 ogre boss. |
 | `sprites/demon/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 56x56 art exported at 2x -> 112x112 cells, feet at (58,102), 90px tall. 2/4/7/4 frames. Replaces the 0x72 demon boss. Eight parts, including a wing. |
 | `sprites/bigzombie/{idle,walk,attack,death}.png` | Drawn from scratch in Pixelwright for this project | **Ours.** No third-party rights. | 56x56 art exported at 2x -> 112x112 cells, feet at (58,102), 88px tall. 2/4/7/4 frames. Replaces the 0x72 big zombie boss. All three bosses are now original. |
@@ -49,14 +52,14 @@ even CC0 attribution. It can be sold, relicensed, or redrawn freely. It is also
 the first set with genuine `attack` and `death` clips rather than the borrowed
 `hurt` cell the 0x72 pack forces.
 
-That goal is now met for everything the overlay actually draws. All six
-hero classes, both monsters in rotation and all three bosses are original.
-No 0x72 sprite is loaded on the field any more. The pack is still vendored
-in `sprites/dungeon/`, and six monster names sit in `MOB_SPRITES_RETIRED`
-in `index.html` waiting to be redrawn before they can return to rotation —
-until then nothing references them. `defSprite` still takes a geometry
-argument, which is what let the 80x80 heroes and the 112x112 bosses share
-one lane while the replacement was under way.
+That goal is now fully met. All six hero classes, all eight monsters and
+all three bosses are original. No 0x72 sprite is loaded on the field, and
+no name is held back waiting to be redrawn — the replacement is complete.
+The pack is still vendored in `sprites/dungeon/` and still credited below,
+but nothing in `index.html` references it; it could be deleted outright
+without changing a pixel of what the overlay draws. `defSprite` still takes
+a geometry argument, which is what let the 80x80 heroes and the 112x112
+bosses share one lane while the replacement was under way.
 
 ## Sprites
 
