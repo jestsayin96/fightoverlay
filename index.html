@@ -184,13 +184,21 @@ const T = {
   stripBot:   1046,
   heroGate:   -50,     // heroes walk on from here
   mobGate:    1970,    // monsters walk on from here
-  heroHold:   760,     // with nothing to fight, heroes hold this line
-  mobHold:    1180,    // ...and monsters hold this one
+  heroHold:   860,     // with nothing to fight, heroes hold this line
+  mobHold:    1080,    // ...and monsters hold this one. Closer together
+                       //   than they were: 420px apart meant the two
+                       //   idle ranks stared at each other out of reach
+  fightLeft:  380,     // duels are held inside this band of the frame
+  fightRight: 1560,    //   so the fight can never drift off to an edge
   bossHold:   1420,    // a boss plants itself here and waits
   engage:     64,      // how close before they stop and swing
   maxHeroes:  26,
   maxMobs:    22,
-  march:      78,      // px/sec advance
+  march:      210,     // px/sec. At 78 the fight was 95% commute: paired
+                       //   fighters sat a median 846px apart against a
+                       //   64px engage range and fought 3% of the time
+  strideRad:  0.109,   // leg-cycle radians per pixel travelled, so the
+                       //   feet keep up at any march speed (~58px/stride)      // px/sec advance
   /* Combat numbers, settled by simulating 4 minutes at 3, 10 and 25 viewers
      and reading back hero health, knockdowns, kills and how long a monster
      survives. These land at 77-83% average hero health, a knockdown per hero
@@ -688,6 +696,11 @@ function assignFoes(){
   const hs = side(1).sort((a,b)=>b.x-a.x);     // front-most hero first
   const ms = side(-1);
   const taken = new Set();
+  /* Re-paired by distance every tick on purpose. Making pairs sticky
+     sounded better - two fighters locking on each other - but it froze
+     cross-frame pairings in place: paired fighters averaged 944px apart
+     against a 64px engage range, and the field spent 83% of its time
+     marching and 4.5% fighting. Nearest-each-tick keeps duels tight. */
   for (const h of hs){
     let best=null, bd=Infinity;
     for (const m of ms){
@@ -817,12 +830,36 @@ function lineGoal(e, foe){
   /* Paired off: go to your own opponent rather than queueing in the rank.
      Both halves of a pair derive the same depth from the pair's lower id,
      so duels spread across the strip instead of every pair converging on
-     the same line and piling up in the middle of the frame. */
+     the same line and piling up in the middle of the frame.
+
+     The x is clamped into the fight band. Unclamped, heroes chase monsters
+     toward the gate they spawn from and the whole engagement ends up
+     jammed against the right edge of a 1920 frame. Clamping the goal -
+     rather than rallying pairs to a computed meeting point, which cost
+     three quarters of the kill rate - leaves the fight dynamics alone. */
   if (foe && e.foeId === foe.id){
+    const key   = Math.min(e.id, foe.id);                    // stable per pair
     const lanes = 5;
-    const slot  = (Math.min(e.id, foe.id) * 7) % lanes;      // stable per pair
+    const slot  = (key * 7) % lanes;
     const band  = (T.stripBot - T.stripTop) - 18;
-    return { x: foe.x - e.side*(T.engage-10),
+    /* Each duel gets its own column as well as its own depth lane, both
+       derived from the pair so the two halves agree. Letting pairs settle
+       wherever they met piled all of them into one 250px column in the
+       middle of the frame, nameplates stacked ten deep and unreadable.
+       A fixed rally point was too expensive when march was 78px/s - the
+       walk ate the fight - but at 210 it costs about a second.
+
+       Snapped to the NEAREST column rather than one picked from the pair
+       id: a hashed column sent fighters walking across the frame away
+       from the opponent they were locked on, which reads as avoidance.
+       Nearest keeps the walk short and duels still land on a grid,
+       because they are already spread out when they pair. */
+    const cols = 11;
+    const w    = (T.fightRight - T.fightLeft) / (cols - 1);
+    const mid  = (e.x + foe.x) / 2;
+    const col  = clamp(Math.round((mid - T.fightLeft) / w), 0, cols - 1);
+    const meet = T.fightLeft + col * w;
+    return { x: meet - e.side*(T.engage*0.5),
              y: T.stripTop + 9 + (slot/(lanes-1)) * band };
   }
   const mates=sideMates(e);
@@ -941,10 +978,12 @@ function step(dt){
         const dx=g.x-e.x, dy=g.y-e.y;
         if (Math.abs(dx)>22 || Math.abs(dy)>14){
           const sx=T.march*1.45*dt;
-          e.x += clamp(dx,-sx,sx);
-          e.y += clamp(dy,-sx*0.75,sx*0.75);
+          const mvx=clamp(dx,-sx,sx), mvy=clamp(dy,-sx*0.75,sx*0.75);
+          e.x += mvx;
+          e.y += mvy;
           if (Math.abs(dx)>4) e.face=Math.sign(dx);
-          e.walk += dt*10; e.moving=true; e.state="march";
+          e.walk += Math.hypot(mvx,mvy) * T.strideRad;
+          e.moving=true; e.state="march";
           e.y = clamp(e.y, T.stripTop, T.stripBot);
           continue;
         }
@@ -987,12 +1026,21 @@ function step(dt){
     } else goal = lineGoal(e, foe);
     const dx = goal.x - e.x, dy = goal.y - e.y;
     const speed = T.march * (e.isBoss ? 0.8 : 1) * (e.slow>0 ? 0.35 : 1);
-    if (Math.abs(dx) > 5 || Math.abs(dy) > 3){
+    /* Already toe to toe? Stop walking and swing. Without this a fighter
+       within reach of its opponent kept marching toward its formation
+       goal and never entered "fight" at all - which is most of why
+       giving duels their own columns cost a third of the combat. */
+    const locked = foe && gap <= T.engage;
+    if (!locked && (Math.abs(dx) > 5 || Math.abs(dy) > 3)){
       const stepX = speed * dt, stepY = speed * 0.7 * dt;
-      e.x += clamp(dx, -stepX, stepX);
-      e.y += clamp(dy, -stepY, stepY);
+      const mvx = clamp(dx, -stepX, stepX), mvy = clamp(dy, -stepY, stepY);
+      e.x += mvx;
+      e.y += mvy;
       if (Math.abs(dx) > 4) e.face = Math.sign(dx);
-      e.walk += dt * 8.5;
+      /* Advance the leg cycle by distance covered, not by time. It used to
+         be a flat dt*8.5, which meant the legs ran at one rate whatever the
+         speed - so raising march speed just made everyone moonwalk. */
+      e.walk += Math.hypot(mvx, mvy) * T.strideRad;
       e.moving = true;
       e.state = "march";
     } else {
