@@ -193,6 +193,7 @@ const T = {
   stripBot:   1056,
   heroGate:   -50,     // heroes walk on from here
   mobGate:    1970,    // monsters walk on from here
+  nameMaxW:   220,     // px; a 25-char Twitch name draws ~300 unclipped
   heroHold:   860,     // with nothing to fight, heroes hold this line
   mobHold:    1080,    // ...and monsters hold this one. Closer together
                        //   than they were: 420px apart meant the two
@@ -1982,6 +1983,22 @@ function platePrio(e){
   return p;
 }
 
+/* Twitch display names run to 25 characters, and a live test against the
+   real chat socket turned one into a 446px plate - a quarter of a 1920
+   frame for a single label, which on a bottom-strip overlay reads as a
+   banner across someone's gameplay rather than a name. Clip to a width
+   and mark the clip. Measured, not counted in characters, because a CJK
+   name draws about twice as wide per character as a Latin one (both
+   render fine - the pixel font has no CJK, so the browser falls back
+   per glyph, which the same test confirmed). */
+function fitName(c, name, maxW){
+  if (c.measureText(name).width <= maxW) return name;
+  const chars = [...name];                       // keep surrogate pairs whole
+  while (chars.length > 1 &&
+         c.measureText(chars.join("") + "\u2026").width > maxW) chars.pop();
+  return chars.join("") + "\u2026";
+}
+
 function layoutPlates(c){
   const boxes = [];
   /* Damage numbers are drawn after the plates and straight over them, so
@@ -2010,42 +2027,54 @@ function layoutPlates(c){
     const base = sh2 ? (e.y + e.gy - (sh2.fh != null ? sh2.fh : 60) - 4)
                      : (e.y + e.gy - 62*s - (e.isBoss?62:12));
     let put = null;
-    /* Try full size, then two smaller steps, before giving the slot up.
-       The original art sits plates at true head height where the 0x72
-       pack floated them above undersized sprites, so they crowd more:
-       at five tiers and two sizes the drop rate went from 4% to 29%. */
+    /* A name is only useful if you can tell WHOSE it is, so it never moves
+       sideways. The previous version slid a plate up to 1.4x its own width
+       left or right to find clear air, which reads as a name floating over
+       empty ground next to the character it belongs to - and at that point
+       it has stopped doing its job even though no two names touch. Stacking
+       is the lesser evil: a plate directly above its owner is still legibly
+       that owner's, so the only freedom left is upward, and only three
+       steps of it, because this sits at the bottom of a stream and tall
+       stacks climb into the broadcast.
+
+       Nothing is dropped any more either. A viewer watching for their own
+       name would rather see it collide than not see it at all. */
     for (const fs of [Math.max(14, 14*Math.min(s,1.7)),
                       Math.max(12, 12*Math.min(s,1.45)),
                       Math.max(10, 10*Math.min(s,1.25))]){
       c.font = "700 "+fs.toFixed(1)+'px "Silkscreen",monospace';
-      const w = c.measureText(e.name).width + 10, h = fs + 8;
-      for (let tier=0; tier<8 && !put; tier++){
-        for (const sx of [0, w*0.45, -w*0.45, w*0.95, -w*0.95,
-                          w*1.4, -w*1.4]){
-          const cx0 = e.x + sx, top0 = base - tier*h;
-          const clash = boxes.some(b =>
-            Math.abs(b.cx - cx0) < (b.w + w)/2 - 4 &&
-            Math.abs(b.top - top0) < (b.h + h)/2 - 2);
-          if (!clash){ put = {cx:cx0, top:top0, w, h, fs}; break; }
-        }
+      const label = fitName(c, e.name, T.nameMaxW);
+      const w = c.measureText(label).width + 10, h = fs + 8;
+      for (let tier=0; tier<3 && !put; tier++){
+        const top0 = base - tier*h;
+        const clash = boxes.some(b =>
+          Math.abs(b.cx - e.x) < (b.w + w)/2 - 4 &&
+          Math.abs(b.top - top0) < (b.h + h)/2 - 2);
+        if (!clash) put = {cx:e.x, top:top0, w, h, fs, label};
       }
       if (put) break;
     }
-    if (!put) continue;                 // no clear air: better unseen than mush
+    if (!put){                          // nowhere clear: overlap, never vanish
+      const fs = Math.max(10, 10*Math.min(s,1.25));
+      c.font = "700 "+fs.toFixed(1)+'px "Silkscreen",monospace';
+      const label = fitName(c, e.name, T.nameMaxW);
+      put = {cx:e.x, top:base, w:c.measureText(label).width + 10, h:fs + 8, fs, label};
+    }
     boxes.push(put);
-    plate(c, e, put.top, put.fs, s, put.cx);
+    plate(c, e, put.top, put.fs, s, put.cx, put.label);
   }
   PLATES = [];
 }
 
-function plate(c,e,top,fs,s, drawX){
+function plate(c,e,top,fs,s, drawX, label){
   const x = drawX==null ? e.x : drawX;
   c.font="700 "+fs.toFixed(1)+'px "Silkscreen",monospace';
+  const txt = label != null ? label : fitName(c, e.name, T.nameMaxW);
   c.textAlign="center"; c.textBaseline="bottom";
   c.lineJoin="round"; c.lineWidth=4; c.strokeStyle="rgba(0,0,0,.94)";
-  c.strokeText(e.name, x, top);
+  c.strokeText(txt, x, top);
   c.fillStyle = e.isBoss ? "#ffb224" : e.side===1 ? "#ffffff" : "#ff8fa3";
-  c.fillText(e.name, x, top);
+  c.fillText(txt, x, top);
   if (T.showLevels && e.side===1 && e.rec && e.rec.level>1){
     const lf=Math.max(10,10*Math.min(s,1.6));
     c.font='400 '+lf.toFixed(1)+'px "Silkscreen",monospace';

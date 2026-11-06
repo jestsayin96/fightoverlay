@@ -35,6 +35,26 @@ What actually worked was the other axis. Widening the lane from 111px to
 further before touching the horizontal logic again; 185px was measured
 at 28 pairs, so there is a little more room, with diminishing returns.
 
+## Before you commit: `node tools/verify.js`
+
+A syntax check is not a working check. On 2026-11-06 an edit left two
+variables undefined in `lineGoal`; the file parsed, every sprite still
+walked around, a screenshot looked normal, and the build was committed and
+pushed. Nobody ever reached an opponent, so nothing died.
+
+Two things hid it. The frame loop wraps `step()` in a try/catch on purpose
+so a live stream never hard-crashes, which means a fatal bug reports **zero
+page errors**. And frame rate stays at 60 either way, because the renderer
+is fine - it is the simulation that is dead.
+
+`tools/verify.js` boots the overlay headless, runs it for 30 seconds and
+checks the things that have each actually been wrong: `window.__jvErr` is
+empty, monsters die, fighters engage, fps holds, entities exist. It exits
+non-zero on failure. Run it on anything touching movement, pairing, goals
+or rendering. It has been tested against the real bug: with those two
+declarations removed it reports the exact ReferenceError and 0 slain,
+while the syntax check still says "parses OK".
+
 ## Art pipeline (Pixelwright -> overlay)
 
 Every character on the field is original art now: six heroes, eight
