@@ -904,7 +904,10 @@ function defSprite(key, files, geo){
   const g = geo || {};
   const set = { cw: g.cw || CELL_W,   ch: g.ch || CELL_H,
                 ax: g.ax != null ? g.ax : ANCHOR_X,
-                ay: g.ay != null ? g.ay : ANCHOR_Y };
+                ay: g.ay != null ? g.ay : ANCHOR_Y,
+                /* how tall the drawn figure is above the foot anchor, so a
+                   nameplate clears the head whatever the cell size is */
+                fh: g.fh != null ? g.fh : 60 };
   const dir = g.dir || SPRITE_DIR;
   for (const anim in files){
     const a={src:dir+files[anim], img:new Image(), frames:1, ready:false};
@@ -924,7 +927,7 @@ HERO_SPRITES.forEach(c=>defSprite(c,
    animOf plays those straight instead of borrowing the hurt cell. */
 defSprite("knight",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
-  {cw:80, ch:80, ax:36, ay:74, dir:"sprites/knight/"});
+  {cw:80, ch:80, ax:36, ay:74, fh:66, dir:"sprites/knight/"});
 MOB_SPRITES.forEach(m=>defSprite("mob_"+m,
   {idle:"mob_"+m+"_idle.png", walk:"mob_"+m+"_walk.png"}));
 BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
@@ -1507,34 +1510,52 @@ function castGlow(c,e){
 let PLATES = [];
 function queuePlate(e){ PLATES.push(e); }
 
+/* How much a name is worth showing right now. A full field has more plates
+   than clear air, so whatever gets dropped should be an idle bystander and
+   never the viewer who just walked on or the one mid-swing. */
+function platePrio(e){
+  if (e.isBoss) return 1000;
+  let p = 0;
+  if (V.t - e.born < 8) p += 60;   // just arrived; they are watching for it
+  if (e.flash > 0)      p += 40;   // taking a hit
+  if (e.swing > 0)      p += 30;   // swinging
+  if (e.hp < e.maxHp)   p += 12;   // wounded, so the bar says something
+  if (e.side === 1)     p += 6;    // a viewer's own hero over a monster
+  return p;
+}
+
 function layoutPlates(c){
   const boxes = [];
-  const list = PLATES.slice().sort((a,b)=>a.x-b.x);
+  /* Interesting names claim their spot first, the rest fill in around them.
+     A plate with nowhere clear is dropped for this frame rather than printed
+     on top of its neighbour: two overlapping names are both unreadable,
+     one name is readable. Dropped plates return as the crowd shifts. */
+  const list = PLATES.slice().sort((a,b)=> platePrio(b)-platePrio(a) || a.x-b.x);
   for (const e of list){
     const s = depth(e)/1.62;
-    const fs = Math.max(14, 14*Math.min(s,1.7));
-    c.font = "700 "+fs.toFixed(1)+'px "Silkscreen",monospace';
-    const w = c.measureText(e.name).width + 10;
     const sh2 = spriteSetFor(e);
-    let top = sh2 ? (e.y + e.gy - 64)
-                  : (e.y + e.gy - 62*s - (e.isBoss?62:12));
-    const h = fs + 8;
-    /* prefer a side step over stacking six plates on one column */
-    const tries = [
-      [0,0],[0,-h],[w*0.45,0],[-w*0.45,0],
-      [w*0.45,-h],[-w*0.45,-h],[0,-2*h],[0,-3*h]
-    ];
-    let placed = tries[0];
-    for (const off of tries){
-      const cx0 = e.x + off[0], top0 = top + off[1];
-      const clash = boxes.some(b =>
-        Math.abs(b.cx - cx0) < (b.w + w)/2 - 4 && Math.abs(b.top - top0) < h - 2);
-      if (!clash){ placed = [off[0], off[1]]; break; }
+    const base = sh2 ? (e.y + e.gy - (sh2.fh != null ? sh2.fh : 60) - 4)
+                     : (e.y + e.gy - 62*s - (e.isBoss?62:12));
+    let put = null;
+    /* try full size, then once smaller, before giving the slot up */
+    for (const fs of [Math.max(14, 14*Math.min(s,1.7)),
+                      Math.max(11, 11*Math.min(s,1.45))]){
+      c.font = "700 "+fs.toFixed(1)+'px "Silkscreen",monospace';
+      const w = c.measureText(e.name).width + 10, h = fs + 8;
+      for (let tier=0; tier<5 && !put; tier++){
+        for (const sx of [0, w*0.45, -w*0.45, w*0.95, -w*0.95]){
+          const cx0 = e.x + sx, top0 = base - tier*h;
+          const clash = boxes.some(b =>
+            Math.abs(b.cx - cx0) < (b.w + w)/2 - 4 &&
+            Math.abs(b.top - top0) < (b.h + h)/2 - 2);
+          if (!clash){ put = {cx:cx0, top:top0, w, h, fs}; break; }
+        }
+      }
+      if (put) break;
     }
-    const drawX = e.x + placed[0];
-    top += placed[1];
-    boxes.push({cx:drawX, w, top});
-    plate(c, e, top, fs, s, drawX);
+    if (!put) continue;                 // no clear air: better unseen than mush
+    boxes.push(put);
+    plate(c, e, put.top, put.fs, s, put.cx);
   }
   PLATES = [];
 }
