@@ -2458,6 +2458,18 @@ function coinsOf(rec){
   if (!rec.owned) rec.owned = [];
   return rec.coins;
 }
+/* Chat bots are not viewers. A live test against the real socket put
+   StreamElements on the field as a fighter, levelling up and earning coins
+   off its own command replies. These are the accounts most streams run;
+   a bot posting every few seconds would otherwise become the highest
+   level "viewer" in the village. */
+const BOTS = new Set(["streamelements","nightbot","streamlabs","moobot",
+  "fossabot","wizebot","sery_bot","own3d","botrixoficial","pretzelrocks",
+  "soundalerts","blerp","commanderroot","lurkbot","kofistreambot",
+  "creatisbot","tangiabot","drpancakebot","buttsbot","streamstickers",
+  "jest_bot"]);
+function isBot(name){ return BOTS.has(String(name||"").toLowerCase()); }
+
 function privileged(name, tags){
   tags = tags || {};
   if (tags.mod==="1" || tags.forceMod) return true;
@@ -3018,6 +3030,7 @@ function showcase(){
 const Game = {
   chat(name, text, color, tags){
     tags = tags || {};
+    if (isBot(name)) return;            // bots are furniture, not viewers
     const t = (text||"").trim();
     const parts = t[0]==="!" ? t.slice(1).split(/\s+/) : [];
     const cmd = parts[0] ? parts[0].toLowerCase() : "";
@@ -3036,7 +3049,12 @@ const Game = {
       a.payT = V.t; coinsOf(a.rec); a.rec.coins += 1;
     }
     a.rec.msgs++;
-    if (a.rec.msgs % 10 === 0) Save.put();
+    /* Demo chatters are props. They used to be written to the save like
+       anyone else, so after one press of D the eighteen fake names became
+       permanent "regulars" - and seed() re-joins the top eight by message
+       count on every load, which put fake viewers on a live stream with
+       demo mode switched off. Keep them out of storage entirely. */
+    if (!demo && a.rec.msgs % 10 === 0) Save.put();
     if (!cmd) return;
     runCmd(a, cmd, parts.slice(1), tags);
   },
@@ -3178,6 +3196,7 @@ const PLATFORM = PLATFORMS[CFG.platform] || PLATFORMS.twitch;
 const FAKE=["AFHxReaper","PixelWitch","sogg","Marrow_TV","nootnoot42","QueenBaklava",
   "DoomFridge","lilcactus","VoidRunner","Benny_Bits","theGoose","mx_kayla",
   "StaticHalo","ZeroPing","CoffeeGremlin","HexaByte","grumblor","Nine_Volt"];
+const FAKE_SET = new Set(FAKE.map(n=>n.toLowerCase()));
 let demo=false, demoT=0;
 function demoTick(dt){
   if(!demo) return;
@@ -3286,7 +3305,10 @@ addEventListener("keydown",e=>{
 
 // open with the regulars already marching in
 (function seed(){
-  const all=Object.values(Save.d).sort((a,b)=>b.msgs-a.msgs).slice(0,8);
+  /* Belt and braces for saves made before demo chatters stopped being
+     persisted: never march a prop on as a regular. */
+  const all=Object.values(Save.d).filter(r=>!FAKE_SET.has((r.name||"").toLowerCase()))
+                                 .sort((a,b)=>b.msgs-a.msgs).slice(0,8);
   for(const r of all) joinHero(r.name);
   for(let i=0;i<3;i++) spawnMonster(null);
   if(all.length) log([{t:"The regulars are back — ",c:"c-v"},{t:all.length+" heroes",c:"c-t"}]);
