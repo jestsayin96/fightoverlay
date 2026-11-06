@@ -1,0 +1,1530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Jester's Village — Viewer Avatars</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap">
+<style>
+/* ------------------------------------------------------------------
+   Jester's Village — viewer avatars for JestSayin96
+   Transparent background: OBS composites this over your gameplay.
+   Heroes march in from the LEFT. Monsters and bosses come from the RIGHT.
+   They clash wherever they meet along the bottom strip.
+------------------------------------------------------------------- */
+:root{
+  --teal:#2de6c8; --teal-deep:#0e8f7c;
+  --horde:#ff4d6d; --boss:#ffb224; --loot:#ffd166;
+  --panel:rgba(8,13,18,.72); --edge:rgba(45,230,200,.3);
+  --ink:#e8fbf7; --dim:#8fb3ad;
+  --ui:"Silkscreen","Courier New",monospace;
+  --log:"VT323","Courier New",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;overflow:hidden;
+  font-family:var(--ui);color:var(--ink);-webkit-font-smoothing:antialiased}
+#stage{position:absolute;top:0;left:0;width:1920px;height:1080px;
+  transform-origin:top left;pointer-events:none}
+#field{position:absolute;top:0;left:0}
+.panel{background:var(--panel);border:2px solid var(--edge);border-radius:4px}
+
+#feed{position:absolute;left:26px;bottom:206px;width:420px;padding:9px 12px 10px}
+#feed .cap{font-size:9px;letter-spacing:.16em;color:var(--dim);margin-bottom:5px}
+#feed .row{font-family:var(--log);font-size:21px;line-height:1.15;
+  text-shadow:0 2px 5px rgba(0,0,0,.9);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;opacity:0;transform:translateX(-12px);
+  animation:sl .3s cubic-bezier(.2,.9,.3,1) forwards}
+@keyframes sl{to{opacity:1;transform:none}}
+#feed .row.dimmed{opacity:.4}
+.c-t{color:var(--teal)} .c-h{color:var(--horde)}
+.c-b{color:var(--boss)} .c-l{color:var(--loot)} .c-v{color:var(--dim)}
+
+#hdr{position:absolute;left:26px;bottom:372px;padding:8px 12px 9px;width:420px}
+#hdr .top{display:flex;align-items:center;gap:10px}
+#hdr .ttl{font-size:11px;letter-spacing:.12em;color:var(--teal);flex:1}
+#hdr .st{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+#hdr .arm{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:10px;
+  letter-spacing:.06em;color:var(--dim)}
+#hdr .arm b{font-weight:400;font-variant-numeric:tabular-nums}
+#hdr .l b{color:var(--teal)} #hdr .r b{color:var(--horde)}
+#hdr .arm .sp{flex:1}
+#line{height:6px;border-radius:3px;margin-top:8px;background:var(--horde);
+  overflow:hidden}
+#line i{display:block;height:100%;background:var(--teal);transition:width .5s ease}
+
+#bossbar{position:absolute;left:50%;top:40px;transform:translateX(-50%);
+  width:760px;padding:9px 14px 11px;display:none}
+#bossbar.on{display:block}
+#bossbar .bn{font-size:14px;letter-spacing:.1em;color:var(--boss);text-align:center;
+  margin-bottom:7px;text-shadow:0 0 14px rgba(255,178,36,.5)}
+#bossbar .trk{height:14px;background:rgba(255,178,36,.15);border-radius:3px;overflow:hidden}
+#bossbar .fil{height:100%;width:100%;background:linear-gradient(90deg,#ff7a18,var(--boss));
+  transition:width .15s linear}
+
+#toast{position:absolute;left:50%;top:170px;transform:translateX(-50%) translateY(-8px);
+  font-size:30px;letter-spacing:.06em;opacity:0;text-align:center;
+  text-shadow:0 3px 18px rgba(0,0,0,.95);transition:opacity .22s,transform .22s}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+#setup{position:fixed;inset:0;background:rgba(4,8,11,.94);display:none;place-items:center;
+  pointer-events:auto;overflow:auto;padding:24px}
+#setup.on{display:grid}
+.card{width:min(580px,100%);background:#0a1016;border:2px solid var(--edge);
+  border-radius:6px;padding:26px}
+.card h1{font-size:16px;letter-spacing:.08em;margin:0 0 6px;color:var(--teal)}
+.card .sub{font-family:var(--log);font-size:18px;line-height:1.5;color:var(--dim);margin:0 0 6px}
+.card .sec{font-size:9px;letter-spacing:.16em;color:var(--teal);
+  margin:22px 0 2px;border-top:1px solid #16262c;padding-top:16px}
+.card label{display:block;font-size:9px;letter-spacing:.14em;color:var(--dim);margin:12px 0 5px}
+.card input{width:100%;background:#060b0f;border:1px solid #1d2d33;color:var(--ink);
+  font-family:var(--log);font-size:18px;padding:9px 11px;border-radius:3px}
+.card input:focus{outline:2px solid var(--teal);outline-offset:1px}
+.btns{display:flex;gap:9px;margin-top:20px;flex-wrap:wrap}
+button{font-family:var(--ui);font-size:10px;letter-spacing:.09em;padding:11px 15px;
+  border-radius:3px;border:1px solid var(--teal);background:var(--teal);color:#04231e;cursor:pointer}
+button.ghost{background:transparent;color:var(--teal)}
+button:hover{filter:brightness(1.12)}
+#status{margin-top:15px;font-family:var(--log);font-size:17px;line-height:1.45;
+  color:var(--dim);min-height:22px;white-space:pre-wrap}
+#status b{color:var(--teal);font-weight:400} #status .bad{color:var(--horde)}
+#hint{position:fixed;right:12px;bottom:10px;font-size:9px;letter-spacing:.08em;
+  color:rgba(143,179,173,.45);pointer-events:none}
+@media (prefers-reduced-motion:reduce){#feed .row{animation:none;opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="field" width="1920" height="1080"></canvas>
+
+  <div id="hdr" class="panel">
+    <div class="top">
+      <span class="ttl">THE JESTER'S VILLAGE</span>
+      <span class="st" id="slain">0 SLAIN</span>
+    </div>
+    <div class="arm">
+      <span class="l">HEROES <b id="nHero">0</b></span>
+      <span class="sp"></span>
+      <span class="r"><b id="nMob">0</b> MONSTERS</span>
+    </div>
+    <div id="line"><i id="lineFill" style="width:50%"></i></div>
+  </div>
+
+  <div id="feed" class="panel">
+    <div class="cap">BATTLE LOG</div>
+    <div id="rows"></div>
+  </div>
+
+  <div id="bossbar" class="panel">
+    <div class="bn" id="bossName">—</div>
+    <div class="trk"><div class="fil" id="bossFill"></div></div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<div id="setup">
+  <div class="card">
+    <h1>JESTER'S VILLAGE — SETUP</h1>
+    <p class="sub">Chat avatars need nothing but your channel name. Everything below
+      the line is optional and only adds follows + channel points.</p>
+
+    <label for="f-chan">TWITCH CHANNEL</label>
+    <input id="f-chan" placeholder="JestSayin96" autocomplete="off" spellcheck="false">
+
+    <div class="sec">OPTIONAL — FOLLOWS &amp; CHANNEL POINTS</div>
+    <label for="f-cid">CLIENT ID</label>
+    <input id="f-cid" placeholder="leave blank to skip" autocomplete="off" spellcheck="false">
+    <label for="f-tok">OAUTH TOKEN</label>
+    <input id="f-tok" type="password" placeholder="leave blank to skip" autocomplete="off" spellcheck="false">
+
+    <div class="btns">
+      <button id="b-go">START</button>
+      <button id="b-demo" class="ghost">DEMO</button>
+      <button id="b-wipe" class="ghost">WIPE SAVE</button>
+    </div>
+    <div id="status"></div>
+  </div>
+</div>
+<div id="hint">S setup · D demo · B boss · M monster · H hero · L loot</div>
+
+<script>
+"use strict";
+/* ==================================================================
+   CONFIG
+================================================================== */
+const Q = new URLSearchParams(location.search);
+const SAVE = "jv-save-v1", CFGK = "jv-cfg-v1";
+
+const T = {
+  stripTop:   935,     // the lane: avatars live between these two lines
+  stripBot:   1046,
+  heroGate:   -50,     // heroes walk on from here
+  mobGate:    1970,    // monsters walk on from here
+  heroHold:   760,     // with nothing to fight, heroes hold this line
+  mobHold:    1180,    // ...and monsters hold this one
+  bossHold:   1420,    // a boss plants itself here and waits
+  engage:     64,      // how close before they stop and swing
+  maxHeroes:  26,
+  maxMobs:    16,
+  march:      78,      // px/sec advance
+  idleSpawn:  10,      // dead air: a wandering monster this often...
+  idleFloor:  4,       // ...while monsters are under this many
+  idleFor:    1800,    // 30 min silent and a hero wanders home
+  showLevels: true,
+};
+
+let CFG = loadCfg();
+function loadCfg(){
+  let s={}; try{ s=JSON.parse(localStorage.getItem(CFGK)||"{}"); }catch(e){}
+  return {
+    channel:(Q.get("channel")||s.channel||"").replace(/^#/,""),
+    clientId:Q.get("clientid")||s.clientId||"",
+    token:(Q.get("token")||s.token||"").replace(/^oauth:/i,""),
+    demo:Q.get("demo")==="1",
+  };
+}
+function saveCfg(){ try{ localStorage.setItem(CFGK,JSON.stringify(
+  {channel:CFG.channel,clientId:CFG.clientId,token:CFG.token})); }catch(e){} }
+
+/* ==================================================================
+   SAVE
+================================================================== */
+const Save = {
+  d:{},
+  load(){ try{ this.d=JSON.parse(localStorage.getItem(SAVE)||"{}"); }catch(e){ this.d={}; } },
+  put(){ try{ localStorage.setItem(SAVE,JSON.stringify(this.d)); }catch(e){} },
+  get(name){
+    const k=name.toLowerCase();
+    if(!this.d[k]) this.d[k]={ name, msgs:0, kills:0, deaths:0, level:1, xp:0,
+                               hat:null, color:null, first:Date.now() };
+    this.d[k].name=name;
+    return this.d[k];
+  },
+  xp(name,n){
+    const r=this.get(name); r.xp+=n; let up=false;
+    while(r.xp >= r.level*8){ r.xp-=r.level*8; r.level++; up=true; }
+    this.put(); return up;
+  },
+  wipe(){ this.d={}; try{ localStorage.removeItem(SAVE); }catch(e){} },
+};
+Save.load();
+
+/* ==================================================================
+   LOOKS — derived from the name, so it's the same person every stream
+================================================================== */
+const HATS = ["none","jester","crown","horns","cap","topknot","halo"];
+const SKINS = ["#f1c9a5","#d9a173","#a9713f","#7a4a26","#f7dfc4","#5e3418"];
+const SHIRTS= ["#2de6c8","#4ddc5f","#8f6bff","#4db8ff","#ffd166","#ff7ad9",
+               "#ff8a3d","#9ef01a","#f2fbf9","#5ad1b4"];
+const MONSTER_KINDS = ["Goblin","Skeleton","Slime","Imp","Ghoul","Kobold","Wraith"];
+
+/* Signature abilities. Which one you get is decided by your name, so the
+   same viewer always casts the same thing, every stream, forever. */
+const ABILITIES = [
+  {id:"fireball", label:"Fireball",        col:"#ff7a18", cd:10, dmg:30},
+  {id:"chain",    label:"Chain Lightning", col:"#8fd6ff", cd:12, dmg:19},
+  {id:"whirl",    label:"Whirlwind",       col:"#2de6c8", cd:9,  dmg:17},
+  {id:"smite",    label:"Holy Smite",      col:"#ffe9a8", cd:13, dmg:42},
+  {id:"frost",    label:"Frost Nova",      col:"#9fe8ff", cd:11, dmg:15},
+  {id:"venom",    label:"Venom Cloud",     col:"#9ef01a", cd:14, dmg:7},
+  {id:"mend",     label:"Mending Light",   col:"#5affc8", cd:16, dmg:0},
+  {id:"crescent", label:"Crescent Slash",  col:"#ff4d6d", cd:8,  dmg:26},
+];
+const METEOR = {id:"meteor", label:"Meteor", col:"#ff5a1f", cd:26, dmg:95};
+
+/* what you cast decides what you look like */
+const CLASS_OF = {
+  fireball:"mage", chain:"mage", frost:"mage",
+  smite:"paladin", mend:"cleric",
+  whirl:"barbarian", venom:"rogue", crescent:"knight", meteor:"mage",
+};
+
+function hash(s){ let h=2166136261; for(let i=0;i<s.length;i++){
+  h^=s.charCodeAt(i); h=Math.imul(h,16777619);} return Math.abs(h); }
+
+function heroLook(name, rec){
+  const h=hash(name.toLowerCase());
+  return { skin:SKINS[h%SKINS.length], shirt:rec.color||SHIRTS[(h>>3)%SHIRTS.length],
+           hat:rec.hat||HATS[(h>>7)%HATS.length], pants:"#2a3640" };
+}
+function mobLook(name){
+  const h=hash(name.toLowerCase());
+  const bodies=["#ff4d6d","#c43a7a","#9a2f52","#e0563f","#7d3fa8"];
+  return { skin:bodies[h%bodies.length], shirt:"#6d1430",
+           hat:"horns", pants:"#3a1020" };
+}
+
+/* ==================================================================
+   WORLD
+================================================================== */
+const V = { ents:[], props:[], boss:null, t:0, slain:0, lost:0,
+            idleT:0, mobSeq:0, fx:[], shots:[], clouds:[], shake:0 };
+let nid=1;
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const pick=a=>a[(Math.random()*a.length)|0];
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+
+const heroes = ()=> V.ents.filter(e=>e.alive && e.side===1);
+const mobs   = ()=> V.ents.filter(e=>e.alive && e.side===-1);
+function findHero(name){ const k=name.toLowerCase();
+  return V.ents.find(e=>e.alive && e.side===1 && e.key===k); }
+
+/* ---------- heroes: anyone who talks in chat ---------- */
+function joinHero(name, chatColor){
+  let a = findHero(name);
+  if (a){ a.lastSeen = V.t; return a; }
+  if (heroes().length >= T.maxHeroes){
+    const q = heroes().sort((p,r)=>p.lastSeen-r.lastSeen)[0];
+    if (q) retire(q);
+  }
+  const rec = Save.get(name);
+  if (chatColor && !rec.color) rec.color = chatColor;
+  a = baseEnt(name, 1, heroLook(name, rec));
+  a.rec = rec; a.key = name.toLowerCase();
+  a.level = rec.level;
+  a.maxHp = 70 + 14*(rec.level-1); a.hp = a.maxHp;
+  a.atk   = 6 + 1.6*rec.level;
+  a.rate  = 1.0;
+  a.ab    = ABILITIES[hash(a.key+"spell") % ABILITIES.length];
+  a.cls   = CLASS_OF[a.ab.id] || "knight";
+  a.abcd  = rnd(4, a.ab.cd);
+  V.ents.push(a);
+  return a;
+}
+
+/* ---------- monsters: follows, redeems, and dead air ---------- */
+function spawnMonster(name, opts){
+  opts = opts || {};
+  if (mobs().length >= T.maxMobs) return null;
+  const kind = pick(MONSTER_KINDS);
+  const label = name || (pick(["Stray","Feral","Lost","Hungry","Rotten"]) + " " + kind);
+  const m = baseEnt(label, -1, mobLook(label));
+  m.kindName = kind;
+  m.maxHp = 46 + (opts.tough||0); m.hp = m.maxHp;
+  m.atk = 6; m.rate = 1.2;
+  m.named = !!name;
+  if (name){ m.rec = Save.get(name); m.key = name.toLowerCase(); }
+  V.ents.push(m);
+  return m;
+}
+
+function baseEnt(name, side, look){
+  return {
+    id:nid++, name, side, look, alive:true,
+    x: side===1 ? T.heroGate - rnd(0,160) : T.mobGate + rnd(0,160),
+    y: rnd(T.stripTop, T.stripBot),
+    vy:0, gy:0, face: side, walk:rnd(0,6),
+    state:"march", stateT:0, cd:rnd(0,1),
+    flash:0, swing:0, fading:0, cast:0, slow:0, ab:null, abcd:99,
+    lastSeen: V.t, born: V.t,
+    rec:null, key:null, level:1,
+    hp:50, maxHp:50, atk:5, rate:1.1,
+  };
+}
+function retire(e){ e.alive=false; e.fading=V.t; }
+
+function dropLoot(by){
+  V.props.push({ id:nid++, x:rnd(T.heroHold-200, T.mobHold+200),
+    y:rnd(T.stripTop,T.stripBot), bob:Math.random()*6, alive:true });
+  log([{t:"A CHEST",c:"c-l"},{t:" dropped"+(by?" — "+by:""),c:"c-v"}]);
+}
+
+function spawnBoss(by){
+  if (V.boss && V.boss.alive){
+    log([{t:by||"Someone",c:"c-b"},{t:" tried to summon a second boss",c:"c-v"}]); return; }
+  const kind = pick(["Dread Tyrant","Rotting Colossus","Obsidian Warlord",
+                     "Howling Devourer","Bloodmoon Hollow"]);
+  const pop = Math.max(3, heroes().length);
+  const B = baseEnt((by? by+"'s ":"")+kind, -1, mobLook(kind));
+  B.isBoss = true; B.kindName = kind;
+  B.x = T.mobGate + 40;
+  B.y = (T.stripTop + T.stripBot)/2;
+  B.maxHp = 230*pop; B.hp = B.maxHp;
+  B.atk = 26; B.rate = 2.4;
+  V.ents.push(B); V.boss = B;
+  log([{t:"BOSS — ",c:"c-v"},{t:B.name,c:"c-b"},{t:" marches on the village",c:"c-v"}]);
+  toast("BOSS: "+kind.toUpperCase(), "var(--boss)");
+}
+
+/* ---------- chat emotes ---------- */
+function act(a, what, arg){
+  if (!a) return;
+  a.lastSeen = V.t;
+  if (a.state === "down") return;
+  switch(what){
+    case "jump":  if (a.gy===0) a.vy = -240; break;
+    case "dance": a.state="dance"; a.stateT=4; break;
+    case "sit":   a.state="sit";   a.stateT=7; break;
+    case "wave":  a.state="wave";  a.stateT=2; break;
+    case "charge": a.rush = V.t + 6; break;
+    case "hat":{
+      const i=(HATS.indexOf(a.look.hat)+1)%HATS.length;
+      a.look.hat=HATS[i]; if(a.rec){a.rec.hat=HATS[i]; Save.put();} break; }
+    case "color":{
+      const c=String(arg||"").trim();
+      const named={red:"#ff4d6d",blue:"#4db8ff",green:"#4ddc5f",teal:"#2de6c8",
+        gold:"#ffd166",pink:"#ff7ad9",purple:"#8f6bff",orange:"#ff8a3d",
+        lime:"#9ef01a",white:"#f2fbf9"}[c.toLowerCase()];
+      const hex=/^#[0-9a-f]{6}$/i.test(c)?c:named;
+      if(hex){ a.look.shirt=hex; if(a.rec){a.rec.color=hex; Save.put();} }
+      break; }
+    case "stats":
+      if (a.rec) log([{t:a.name,c:"c-t"},{t:" — lv"+a.rec.level+" · "+a.rec.kills+
+        " kills · "+a.rec.deaths+" deaths",c:"c-v"}]);
+      break;
+  }
+}
+
+/* ==================================================================
+   ABILITIES
+================================================================== */
+function fx(o){ o.age=0; V.fx.push(o); return o; }
+function num(x,y,txt,col){ fx({k:"num",x,y,txt,col,life:1.1}); }
+
+function abHit(src,dst,dmg,col){
+  if(!dst || !dst.alive || dst.state==="down") return;
+  dst.hp -= dmg; dst.flash = .3;
+  num(dst.x, dst.y-70, Math.round(dmg), col);
+  if(dst.hp<=0) down(src,dst);
+}
+function foesNear(e,x,r){
+  return V.ents.filter(o=>o.alive && o.side!==e.side && o.state!=="down" &&
+    Math.abs(o.x-x) < r);
+}
+
+function cast(e, foe){
+  const ab = (e.rec && e.rec.level>=10 && Math.random()<.22) ? METEOR : e.ab;
+  e.abcd = ab.cd * (0.85 + Math.random()*0.4);
+  e.cast = .5;
+  const L = ab.dmg * (1 + (e.rec ? (e.rec.level-1)*0.14 : 0));
+
+  switch(ab.id){
+    case "fireball":
+      V.shots.push({k:"fireball",x:e.x+18,y:e.y-26,vx:620,owner:e,
+                    dmg:L,col:ab.col});
+      break;
+    case "crescent":
+      V.shots.push({k:"crescent",x:e.x+18,y:e.y-24,vx:780,owner:e,
+                    dmg:L,col:ab.col,pierce:3,hitIds:[]});
+      break;
+    case "chain":{
+      const tg = foesNear(e, e.x+200, 420)
+        .sort((a,b)=>Math.abs(a.x-e.x)-Math.abs(b.x-e.x)).slice(0,3);
+      let from = {x:e.x+14,y:e.y-26};
+      for(const t of tg){
+        fx({k:"bolt",x1:from.x,y1:from.y,x2:t.x,y2:t.y-26,col:ab.col,life:.32});
+        abHit(e,t,L,ab.col); from={x:t.x,y:t.y-26};
+      }
+      break; }
+    case "whirl":
+      fx({k:"ring",x:e.x,y:e.y-16,r0:12,r1:120,col:ab.col,life:.42,w:7});
+      for(const t of foesNear(e,e.x,120)) abHit(e,t,L,ab.col);
+      break;
+    case "smite":
+      if(foe){ fx({k:"beam",x:foe.x,y:foe.y,col:ab.col,life:.46});
+        abHit(e,foe,L,ab.col); V.shake=Math.max(V.shake,5); }
+      break;
+    case "frost":
+      fx({k:"ring",x:e.x,y:e.y-16,r0:10,r1:165,col:ab.col,life:.55,w:5});
+      for(const t of foesNear(e,e.x,165)){ abHit(e,t,L,ab.col); t.slow=2.4; }
+      break;
+    case "venom":
+      V.clouds.push({x:(foe?foe.x:e.x+160),y:e.y,r:92,life:6,age:0,
+                     dmg:L,owner:e,col:ab.col,tick:0});
+      break;
+    case "mend":{
+      let healed=0;
+      for(const h of V.ents){
+        if(h.alive && h.side===e.side && h.hp<h.maxHp && Math.abs(h.x-e.x)<240){
+          h.hp = Math.min(h.maxHp, h.hp + 34); healed++;
+          fx({k:"spark",x:h.x,y:h.y-30,col:ab.col,life:.7});
+        }
+      }
+      fx({k:"ring",x:e.x,y:e.y-16,r0:10,r1:200,col:ab.col,life:.6,w:3});
+      if(healed) log([{t:e.name,c:"c-t"},{t:" mends "+healed+" "+
+        (healed===1?"ally":"allies"),c:"c-v"}]);
+      break; }
+    case "meteor":
+      if(foe){
+        fx({k:"meteor",x:foe.x,y:foe.y,col:ab.col,life:.75,
+            owner:e,dmg:L,fired:false});
+        V.shake=Math.max(V.shake,14);
+      }
+      break;
+  }
+  if(ab.id==="venom")
+    log([{t:e.name,c:"c-t"},{t:" spreads ",c:"c-v"},{t:ab.label,c:"c-l"}]);
+  else if(ab.id!=="mend")
+    log([{t:e.name,c:"c-t"},{t:" casts ",c:"c-v"},{t:ab.label,c:"c-l"}]);
+}
+
+function stepAbilities(dt){
+  for(const s of V.shots){
+    s.x += s.vx*dt;
+    if(s.k==="fireball"){
+      const t = V.ents.find(o=>o.alive && o.side===-1 && o.state!=="down" &&
+                Math.abs(o.x-s.x)<34);
+      if(t || s.x>1990){
+        fx({k:"burst",x:s.x,y:s.y+18,r1:96,col:s.col,life:.4});
+        for(const o of foesNear(s.owner,s.x,88)) abHit(s.owner,o,s.dmg,s.col);
+        s.dead=true; V.shake=Math.max(V.shake,4);
+      }
+    } else if(s.k==="crescent"){
+      for(const o of V.ents){
+        if(o.alive && o.side===-1 && o.state!=="down" &&
+           Math.abs(o.x-s.x)<30 && s.hitIds.indexOf(o.id)<0){
+          s.hitIds.push(o.id); abHit(s.owner,o,s.dmg,s.col);
+          if(s.hitIds.length>=s.pierce) s.dead=true;
+        }
+      }
+      if(s.x>1990) s.dead=true;
+    }
+  }
+  V.shots = V.shots.filter(s=>!s.dead);
+
+  for(const c of V.clouds){
+    c.age += dt; c.tick -= dt;
+    if(c.tick<=0){
+      c.tick = .6;
+      for(const o of foesNear(c.owner,c.x,c.r)) abHit(c.owner,o,c.dmg,c.col);
+    }
+  }
+  V.clouds = V.clouds.filter(c=>c.age < c.life);
+
+  for(const f of V.fx){
+    f.age += dt;
+    if(f.k==="meteor" && !f.fired && f.age > f.life*0.72){
+      f.fired = true;
+      for(const o of foesNear(f.owner,f.x,150)) abHit(f.owner,o,f.dmg,f.col);
+      fx({k:"burst",x:f.x,y:f.y+16,r1:190,col:f.col,life:.5});
+    }
+  }
+  V.fx = V.fx.filter(f=>f.age < f.life);
+
+  if(V.shake>0) V.shake = Math.max(0, V.shake - dt*22);
+}
+
+/* ==================================================================
+   SIM — two armies, left vs right
+================================================================== */
+function nearestFoe(e){
+  let best=null, bd=Infinity;
+  for (const o of V.ents){
+    if (!o.alive || o.side===e.side || o.state==="down") continue;
+    const d = Math.abs(o.x - e.x);
+    if (d < bd){ bd=d; best=o; }
+  }
+  return best;
+}
+
+function hit(src, dst){
+  const dmg = src.atk * (src.isBoss ? 1 : (0.85 + Math.random()*0.3));
+  dst.hp -= dmg; dst.flash = .22; src.swing = 1;
+  if (dst.hp <= 0) down(src, dst);
+}
+
+function down(src, dst){
+  dst.hp = 0;
+  if (dst.isBoss){
+    dst.alive = false; dst.fading = V.t; V.boss = null;
+    V.slain++;
+    log([{t:"THE VILLAGE WINS",c:"c-t"},{t:" — "+dst.kindName+" has fallen",c:"c-v"}]);
+    toast("BOSS DEFEATED","var(--teal)");
+    for (const h of heroes()){ h.state="dance"; h.stateT=5; h.hp=h.maxHp;
+      const up=Save.xp(h.name,6); h.level=h.rec?h.rec.level:h.level;
+      if(up) log([{t:h.name,c:"c-t"},{t:" reached level "+h.rec.level,c:"c-v"}]);
+    }
+    dropLoot(); return;
+  }
+  if (dst.side === -1){
+    dst.alive=false; dst.fading=V.t; V.slain++;
+    if (src.side===1 && src.rec){
+      src.rec.kills++;
+      const up = Save.xp(src.name, 2);
+      log([{t:src.name,c:"c-t"},{t:" cut down ",c:"c-v"},
+           {t:dst.name,c:"c-h"}]);
+      if (up) log([{t:src.name,c:"c-t"},{t:" reached level "+src.rec.level,c:"c-v"}]);
+    }
+  } else {
+    // heroes go down, then walk back on from the left
+    dst.state="down"; dst.stateT=9; V.lost++;
+    if (dst.rec){ dst.rec.deaths++; Save.put(); }
+    log([{t:dst.name,c:"c-t"},{t:" was knocked down by ",c:"c-v"},{t:src.name,c:"c-h"}]);
+  }
+}
+
+function step(dt){
+  V.t += dt;
+
+  /* dead air: send in a wanderer from the right */
+  V.idleT += dt;
+  if (V.idleT >= T.idleSpawn){
+    V.idleT = 0;
+    if (mobs().length < T.idleFloor) spawnMonster(null);
+  }
+
+  for (const e of V.ents){
+    if (!e.alive) continue;
+    if (e.flash>0) e.flash -= dt;
+    if (e.swing>0) e.swing -= dt*3.2;
+    if (e.vy!==0 || e.gy<0){
+      e.vy += 900*dt; e.gy += e.vy*dt;
+      if (e.gy>=0){ e.gy=0; e.vy=0; }
+    }
+    e.stateT -= dt;
+
+    /* knocked down — crawl back to your own edge and return */
+    if (e.state === "down"){
+      e.x -= e.side * T.march * 1.6 * dt;
+      if (e.stateT <= 0){
+        e.state="march"; e.hp=e.maxHp;
+        e.x = e.side===1 ? T.heroGate : T.mobGate;
+        e.y = rnd(T.stripTop,T.stripBot);
+      }
+      continue;
+    }
+
+    /* emotes pause the march briefly */
+    if (e.state==="dance"||e.state==="sit"||e.state==="wave"){
+      if (e.state==="dance") e.walk += dt*14;
+      if (e.stateT<=0) e.state="march";
+      continue;
+    }
+
+    /* heroes who go quiet for a long time walk off the left edge */
+    if (e.side===1 && V.t - e.lastSeen > T.idleFor){ retire(e); continue; }
+
+    if (e.cast > 0) e.cast -= dt;
+    if (e.slow > 0) e.slow -= dt;
+    e.moving = false;
+
+    const foe = nearestFoe(e);
+    const gap = foe ? Math.abs(foe.x - e.x) : Infinity;
+
+    /* heroes fire their signature from range, not just in melee */
+    if (e.side===1 && e.ab && foe && gap < 760){
+      e.abcd -= dt;
+      if (e.abcd <= 0) cast(e, foe);
+    }
+
+    if (foe && gap <= T.engage){
+      /* clash */
+      e.state = "fight";
+      e.face = Math.sign(foe.x - e.x) || e.side;
+      e.cd -= dt;
+      if (e.cd <= 0){
+        e.cd = e.rate * (0.9 + Math.random()*0.25) * (e.slow>0 ? 1.7 : 1);
+        if (e.isBoss){
+          for (const o of V.ents)
+            if (o.alive && o.side!==e.side && o.state!=="down" &&
+                Math.abs(o.x-e.x) < T.engage+70) hit(e,o);
+          e.swing = 1;
+        } else hit(e, foe);
+      }
+      // close the last few pixels so they're not swinging at air
+      if (gap > T.engage*0.62){
+        e.x += Math.sign(foe.x-e.x) * T.march*0.8*dt;
+        e.walk += dt*7; e.moving = true;
+      }
+    }
+    else if (foe){
+      /* advance on the enemy */
+      e.state = "march";
+      const dir = Math.sign(foe.x - e.x);
+      e.x += dir * T.march * (e.isBoss ? 0.8 : 1) * (e.slow>0 ? 0.35 : 1) * dt;
+      e.face = dir; e.walk += dt*8.5; e.moving = true;
+    }
+    else {
+      /* nothing to fight — hold the line */
+      const hold = e.isBoss ? T.bossHold : (e.side===1 ? T.heroHold : T.mobHold);
+      const dx = hold - e.x;
+      if (Math.abs(dx) > 14){
+        e.x += Math.sign(dx) * T.march * dt;
+        e.face = Math.sign(dx); e.walk += dt*8.5; e.moving = true;
+      } else {
+        /* planted. mill about on foot now and then, never slide */
+        e.state = "hold";
+        if (e.millT === undefined || e.millT <= 0){
+          e.millT = rnd(2.5, 7);
+          e.millX = hold + rnd(-70, 70);
+          e.millY = clamp(e.y + rnd(-26, 26), T.stripTop, T.stripBot);
+        }
+        e.millT -= dt;
+        const mx = e.millX - e.x, my = e.millY - e.y;
+        if (Math.abs(mx) > 3 || Math.abs(my) > 2){
+          e.x += Math.sign(mx) * Math.min(Math.abs(mx), T.march*0.55*dt);
+          e.y += Math.sign(my) * Math.min(Math.abs(my), 16*dt);
+          e.face = Math.abs(mx) > 3 ? Math.sign(mx) : e.side;
+          e.walk += dt*6; e.moving = true;
+        } else e.face = e.side;
+      }
+    }
+
+    /* chests */
+    if (e.side===1) for (const p of V.props){
+      if (p.alive && Math.abs(p.x-e.x)<28 && Math.abs(p.y-e.y)<28){
+        p.alive=false;
+        const up=Save.xp(e.name,4); e.level = e.rec?e.rec.level:e.level;
+        e.maxHp += 8; e.hp = e.maxHp; e.atk += 1;
+        log([{t:e.name,c:"c-t"},{t:" opened a chest",c:"c-v"}]);
+        if(up) log([{t:e.name,c:"c-t"},{t:" reached level "+e.rec.level,c:"c-v"}]);
+      }
+    }
+
+    e.x = clamp(e.x, T.heroGate-200, T.mobGate+200);
+  }
+
+  stepAbilities(dt);
+
+  for (const p of V.props) if (p.alive) p.bob += dt*3;
+  V.props = V.props.filter(p=>p.alive);
+  V.ents  = V.ents.filter(e=>e.alive || (V.t - e.fading) < 1.2);
+}
+
+/* ==================================================================
+   RENDER
+================================================================== */
+const cv=document.getElementById("field"), cx=cv.getContext("2d");
+cx.imageSmoothingEnabled=false;
+
+function depth(e){
+  const t=(e.y-T.stripTop)/(T.stripBot-T.stripTop);
+  return (e.isBoss ? 2.9 : 1.62) + t*(e.isBoss?0.55:0.5);
+}
+function px(c,x,y,w,h,col){ c.fillStyle=col; c.fillRect(x,y,w,h); }
+
+function drawHat(c,hat,col){
+  switch(hat){
+    case "jester":
+      px(c,-7,-37,14,5,"#2de6c8");
+      px(c,-9,-41,5,5,"#2de6c8"); px(c,4,-41,5,5,"#ff4d6d");
+      px(c,-1,-43,3,4,"#ffd166"); break;
+    case "crown":
+      px(c,-7,-38,14,4,"#ffd166"); px(c,-7,-42,3,4,"#ffd166");
+      px(c,-2,-43,4,5,"#ffd166"); px(c,4,-42,3,4,"#ffd166"); break;
+    case "horns":
+      px(c,-8,-38,3,5,"#ff4d6d"); px(c,-10,-42,3,5,"#ff4d6d");
+      px(c, 5,-38,3,5,"#ff4d6d"); px(c,  7,-42,3,5,"#ff4d6d"); break;
+    case "cap":   px(c,-7,-37,14,4,col); px(c,-10,-35,5,2,col); break;
+    case "topknot": px(c,-3,-38,6,4,"#2a3640"); px(c,-2,-42,4,4,"#2a3640"); break;
+    case "halo":  px(c,-6,-40,12,2,"#ffd166"); break;
+  }
+}
+
+/* ==================================================================
+   CUTOUT RIG
+   A skeleton of joints. Every part is drawn by a function that takes
+   (ctx, len, width, palette) and draws in LOCAL space pointing down,
+   origin at the joint. Swap any of these for ctx.drawImage(partPng,...)
+   later and nothing else in the engine changes.
+   Units: ~60 tall = a hero. +y is down. Angle 0 points straight down.
+================================================================== */
+const SKEL = {
+  hero: { pelvis:-24, chest:-43, neck:-45, headR:9,
+          shoulder:4, upArm:12, foreArm:11,
+          hip:4.5, thigh:13, shin:12 },
+  mob:  { pelvis:-21, chest:-38, neck:-40, headR:9,
+          shoulder:5, upArm:12, foreArm:11,
+          hip:4.5, thigh:11, shin:10 },
+  boss: { pelvis:-46, chest:-82, neck:-86, headR:18,
+          shoulder:11, upArm:26, foreArm:24,
+          hip:9, thigh:24, shin:22 },
+};
+
+/* draw a tapered segment from the current origin, pointing down,
+   rotated by `ang`. Returns nothing — caller controls the transform. */
+function seg(c, ang, len, w0, w1, col, edge){
+  c.rotate(ang);
+  c.beginPath();
+  c.moveTo(-w0/2, 0); c.lineTo(w0/2, 0);
+  c.lineTo(w1/2, len); c.lineTo(-w1/2, len);
+  c.closePath();
+  c.fillStyle = col; c.fill();
+  if (edge){ c.strokeStyle = edge; c.lineWidth = 1.1; c.stroke(); }
+  c.translate(0, len);
+}
+
+/* ---------- animation poses ---------- */
+const PI = Math.PI;
+function poseFor(e){
+  const ph = e.walk;
+  const mv = e.moving ? 1 : 0;
+  const run = e.state === "march" ? 1 : 0.65;
+  const br = Math.sin(V.t*1.7 + e.id)*0.035;          // idle breathing
+  const sw = e.swing > 0 ? e.swing : 0;               // 1 → 0 during a hit
+  const ca = e.cast  > 0 ? Math.min(1, e.cast*2) : 0;
+
+  let p = {
+    hipF:0, kneeF:0, hipB:0, kneeB:0,
+    shF:0.25, elF:0.2, shB:-0.25, elB:0.2,
+    bob:0, lean:0, head:0, torso:0, hand:0,
+  };
+
+  if (mv){
+    const a = Math.sin(ph), b = Math.sin(ph + PI);
+    p.hipF  =  a*0.62*run;        p.hipB  =  b*0.62*run;
+    p.kneeF =  Math.max(0, -a)*0.95;
+    p.kneeB =  Math.max(0, -b)*0.95;
+    p.shF   = -a*0.55*run + 0.1;  p.shB   = -b*0.55*run + 0.1;
+    p.elF   = 0.3 + Math.max(0,a)*0.3;
+    p.elB   = 0.3 + Math.max(0,b)*0.3;
+    p.bob   = Math.abs(Math.sin(ph))*2.1;
+    p.lean  = 0.1*run;
+    p.head  = -0.05;
+  } else {
+    p.bob  = Math.sin(V.t*1.7 + e.id)*0.8;
+    p.shF += br; p.shB -= br; p.torso = br*0.5;
+  }
+
+  if (sw){                                   // melee swing: wind up, chop down
+    const k = 1 - sw;                        // 0 at start → 1 at end
+    const arc = Math.sin(k*PI);
+    p.shF  = -1.9 + k*3.1;
+    p.elF  = 0.9 - arc*0.8;
+    p.torso = -0.18 + k*0.42;
+    p.lean += 0.12*arc;
+    p.hand = 1;
+  }
+  if (ca){                                   // cast: both arms up, lean back
+    p.shF = -2.3*ca + p.shF*(1-ca);
+    p.shB = -1.5*ca + p.shB*(1-ca);
+    p.elF = -0.3*ca; p.elB = -0.2*ca;
+    p.torso = -0.16*ca; p.head = -0.2*ca;
+  }
+  if (e.state === "down"){ p.lean = 1.35; p.bob = 0; }
+  return p;
+}
+
+/* ---------- part painters (swap for drawImage later) ---------- */
+function partTorso(c, S, P, cls){
+  const w = cls==="boss" ? 30 : 17, h = S.pelvis - S.chest;
+  c.beginPath();
+  c.moveTo(-w/2-1, 0); c.lineTo(w/2+1, 0);
+  c.lineTo(w/2-1.5, h); c.lineTo(-w/2+1.5, h);
+  c.closePath();
+  c.fillStyle = P.armor; c.fill();
+  c.strokeStyle = P.edge; c.lineWidth = 1.2; c.stroke();
+  // chest plate / trim — the gold-accent read
+  c.fillStyle = P.trim;
+  c.fillRect(-w/2+1, h*0.26, w-2, Math.max(1.6, h*0.1));
+  if (cls==="paladin"||cls==="knight"||cls==="boss"){
+    c.beginPath(); c.moveTo(0, h*0.1); c.lineTo(w*0.3, h*0.5);
+    c.lineTo(0, h*0.78); c.lineTo(-w*0.3, h*0.5); c.closePath();
+    c.fillStyle = P.trim; c.fill();
+  }
+  // belt
+  c.fillStyle = P.belt; c.fillRect(-w/2-0.5, h-3, w+1, 3);
+}
+
+function partHead(c, S, P, cls, e){
+  const r = S.headR;
+  c.beginPath(); c.arc(0, -r*0.15, r, 0, 6.283);
+  c.fillStyle = P.skin; c.fill();
+  c.strokeStyle = P.edge; c.lineWidth = 1; c.stroke();
+  // eyes — glowing for monsters, dark for heroes
+  const ex = e.face>0 ? 1.5 : -1.5;
+  c.fillStyle = P.eye;
+  c.fillRect(ex-3.4, -r*0.3, 2.2, 3);
+  c.fillRect(ex+1.2, -r*0.3, 2.2, 3);
+  helm(c, S, P, cls, e);
+}
+
+function helm(c, S, P, cls, e){
+  const r = S.headR, sway = Math.sin(V.t*2.6 + e.id)*0.9;
+  switch(cls){
+    case "mage":
+      c.fillStyle = P.armor;
+      c.beginPath(); c.moveTo(-r*1.5,-r*0.7); c.lineTo(r*1.5,-r*0.7);
+      c.lineTo(r*0.2,-r*3.1 + sway); c.closePath(); c.fill();
+      c.fillStyle = P.trim; c.fillRect(-r*1.5,-r*0.95, r*3, 2.4); break;
+    case "cleric":
+      c.fillStyle = "#eef1e4";
+      c.beginPath(); c.arc(0,-r*0.3, r*1.12, PI, 0); c.fill();
+      c.fillRect(-r*1.12,-r*0.3, r*2.24, r*0.5);
+      c.fillStyle = P.trim; c.fillRect(-r*0.35,-r*1.5, r*0.7, r*0.6); break;
+    case "rogue":
+      c.fillStyle = "#28343d";
+      c.beginPath(); c.arc(0,-r*0.25, r*1.15, PI, 0.2); c.fill();
+      c.fillRect(-r*1.15,-r*0.25, r*0.5, r*1.3); break;
+    case "paladin":
+      c.fillStyle = "#cdd9d6";
+      c.fillRect(-r,-r*1.25, r*2, r*1.5);
+      c.fillStyle = "#1b2329"; c.fillRect(-r*0.75,-r*0.5, r*1.5, 2.6);
+      c.fillStyle = "#ff4d6d";
+      c.beginPath(); c.moveTo(-1.5,-r*1.3); c.lineTo(1.5,-r*1.3);
+      c.lineTo(sway*2, -r*2.6); c.closePath(); c.fill(); break;
+    case "barbarian":
+      c.fillStyle = "#6b4a2a"; c.fillRect(-r,-r*0.9, r*2, 3.4);
+      c.fillStyle = "#e3d5b8";
+      c.beginPath(); c.moveTo(-r,-r*0.9); c.lineTo(-r*1.7,-r*1.9);
+      c.lineTo(-r*0.6,-r*1.2); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(r,-r*0.9); c.lineTo(r*1.7,-r*1.9);
+      c.lineTo(r*0.6,-r*1.2); c.closePath(); c.fill(); break;
+    case "boss":
+      c.fillStyle = P.trim;
+      c.beginPath(); c.moveTo(-r*0.8,-r*0.9); c.lineTo(-r*1.9,-r*2.4);
+      c.lineTo(-r*0.3,-r*1.3); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(r*0.8,-r*0.9); c.lineTo(r*1.9,-r*2.4);
+      c.lineTo(r*0.3,-r*1.3); c.closePath(); c.fill(); break;
+    case "mob":{
+      // ragged ears and a pair of crooked horns, no armour
+      c.fillStyle = P.skinDark;
+      c.beginPath(); c.moveTo(-r*0.9,-r*0.3); c.lineTo(-r*2.1,-r*0.9);
+      c.lineTo(-r*0.8, r*0.35); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(r*0.9,-r*0.3); c.lineTo(r*2.1,-r*0.9);
+      c.lineTo(r*0.8, r*0.35); c.closePath(); c.fill();
+      c.fillStyle = P.trim;
+      c.beginPath(); c.moveTo(-r*0.6,-r*0.95); c.lineTo(-r*1.25,-r*2.1);
+      c.lineTo(-r*0.15,-r*1.2); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(r*0.6,-r*0.95); c.lineTo(r*1.25,-r*2.1);
+      c.lineTo(r*0.15,-r*1.2); c.closePath(); c.fill();
+      // underbite
+      c.fillStyle="#fff1d6";
+      c.fillRect(-r*0.45, r*0.3, 2, 3); c.fillRect(r*0.2, r*0.3, 2, 3);
+      break; }
+    default: // knight
+      c.fillStyle = "#cdd9d6"; c.fillRect(-r*0.95,-r*1.2, r*1.9, r*1.1);
+      c.fillStyle = P.trim;
+      c.beginPath(); c.moveTo(-2,-r*1.2); c.lineTo(2,-r*1.2);
+      c.lineTo(sway*1.6,-r*2.3); c.closePath(); c.fill(); break;
+  }
+}
+
+function partWeapon(c, cls, P, e){
+  c.save();
+  switch(cls){
+    case "mage":
+      c.fillStyle="#6b4a2a"; c.fillRect(-1.3, -6, 2.6, 34);
+      c.fillStyle = e.cast>0 ? "#fff2c0" : (e.ab?e.ab.col:"#8fd6ff");
+      c.beginPath(); c.arc(0,-8, 4.6 + (e.cast>0?2.4:0), 0, 6.283); c.fill();
+      c.globalAlpha=.4; c.beginPath(); c.arc(0,-8, 9, 0, 6.283); c.fill(); break;
+    case "cleric":
+      c.fillStyle="#d8c49a"; c.fillRect(-1.3,-4, 2.6, 30);
+      c.fillStyle=P.trim; c.fillRect(-5,-2, 10, 2.6); c.fillRect(-1.5,-8, 3, 9); break;
+    case "barbarian":
+      c.fillStyle="#6b4a2a"; c.fillRect(-1.6, 0, 3.2, 30);
+      c.fillStyle="#cdd9d6";
+      c.beginPath(); c.moveTo(-1.6,2); c.lineTo(-11,-3); c.lineTo(-9,9);
+      c.lineTo(-1.6,10); c.closePath(); c.fill();
+      c.beginPath(); c.moveTo(1.6,2); c.lineTo(11,-3); c.lineTo(9,9);
+      c.lineTo(1.6,10); c.closePath(); c.fill(); break;
+    case "paladin":
+      c.fillStyle="#6b4a2a"; c.fillRect(-1.6, 2, 3.2, 24);
+      c.fillStyle="#cdd9d6"; c.fillRect(-7,-9, 14, 12);
+      c.fillStyle=P.trim; c.fillRect(-7,-9, 14, 3); break;
+    case "rogue":
+      c.fillStyle="#3a4850"; c.fillRect(-1.1, 4, 2.2, 10);
+      c.fillStyle="#cdd9d6";
+      c.beginPath(); c.moveTo(-2.2,4); c.lineTo(2.2,4); c.lineTo(0,-13);
+      c.closePath(); c.fill(); break;
+    case "mob":{
+      // claws, plus a crude club on some of them
+      c.fillStyle = P.skinDark;
+      for (let i=-1;i<2;i++){
+        c.beginPath(); c.moveTo(i*2.6, 0); c.lineTo(i*2.6+1.6, 0);
+        c.lineTo(i*3.4, 9); c.closePath(); c.fill();
+      }
+      if (e.id % 3 === 0){
+        c.fillStyle="#6b4a2a"; c.fillRect(-2, -2, 4, 20);
+        c.fillStyle="#53381f"; c.fillRect(-4.5, 12, 9, 9);
+        c.fillStyle="#cdd9d6"; c.fillRect(-5.5, 15, 2.4, 2.4);
+        c.fillRect(3.1, 17, 2.4, 2.4);
+      }
+      break; }
+    case "boss":
+      c.fillStyle="#4a0d1c"; c.fillRect(-3, 0, 6, 34);
+      c.fillStyle="#ff4d6d";
+      c.beginPath(); c.moveTo(-3,2); c.lineTo(-26,-10); c.lineTo(-20,16);
+      c.lineTo(-3,18); c.closePath(); c.fill();
+      c.fillStyle=P.trim; c.fillRect(-26,-10, 5, 9); break;
+    default: // knight longsword
+      c.fillStyle="#6b4a2a"; c.fillRect(-1.4, 2, 2.8, 11);
+      c.fillStyle=P.trim; c.fillRect(-6, 0, 12, 2.6);
+      c.fillStyle="#e9f6f3";
+      c.beginPath(); c.moveTo(-3,0); c.lineTo(3,0); c.lineTo(1.6,-31);
+      c.lineTo(0,-35); c.lineTo(-1.6,-31); c.closePath(); c.fill();
+      c.fillStyle="#b9ccc8"; c.fillRect(-0.6,-31, 1.2, 31); break;
+  }
+  c.restore();
+}
+
+function partCape(c, S, P, e){
+  const t = V.t*3.2 + e.id;
+  const flap = (e.moving ? 7 : 2.4);
+  const h = S.pelvis - S.chest + 16;
+  c.beginPath();
+  c.moveTo(-9, 0); c.lineTo(9, 0);
+  c.quadraticCurveTo(12 - e.face*flap*0.4, h*0.6,
+                     6 - e.face*flap + Math.sin(t)*2, h);
+  c.lineTo(-6 - e.face*flap + Math.sin(t+0.7)*2, h);
+  c.quadraticCurveTo(-12 - e.face*flap*0.4, h*0.6, -9, 0);
+  c.closePath();
+  c.fillStyle = P.cape; c.fill();
+  c.strokeStyle = P.edge; c.lineWidth = 1; c.stroke();
+}
+
+/* ---------- the rig assembler ---------- */
+function drawRig(c, e, kind, cls, P){
+  const S = SKEL[kind];
+  const p = poseFor(e);
+  const f = e.face;
+
+  c.save();
+  c.scale(f, 1);                 // face left or right by mirroring
+  c.translate(0, -p.bob);
+  c.rotate(p.lean);
+
+  const legW = kind==="boss" ? 11 : 6.5;
+  const armW = kind==="boss" ? 9  : 5;
+
+  /* back leg */
+  c.save(); c.translate(-S.hip*0.5, S.pelvis);
+  seg(c, p.hipB, S.thigh, legW, legW*0.85, P.legBack, P.edge);
+  seg(c, p.kneeB, S.shin, legW*0.85, legW*0.7, P.legBack, P.edge);
+  c.fillStyle = P.boot; c.fillRect(-legW*0.6, -1, legW*1.5, 3.4);
+  c.restore();
+
+  /* back arm */
+  c.save(); c.translate(-S.shoulder, S.chest);
+  seg(c, p.shB, S.upArm, armW, armW*0.85, P.armBack, P.edge);
+  seg(c, p.elB, S.foreArm, armW*0.85, armW*0.7, P.skinDark, P.edge);
+  c.restore();
+
+  /* cape behind the torso */
+  if (P.cape){ c.save(); c.translate(0, S.chest+2); partCape(c,S,P,e); c.restore(); }
+
+  /* torso */
+  c.save(); c.translate(0, S.chest); c.rotate(p.torso);
+  partTorso(c, S, P, cls);
+  c.restore();
+
+  /* front leg */
+  c.save(); c.translate(S.hip*0.5, S.pelvis);
+  seg(c, p.hipF, S.thigh, legW, legW*0.85, P.legFront, P.edge);
+  seg(c, p.kneeF, S.shin, legW*0.85, legW*0.7, P.legFront, P.edge);
+  c.fillStyle = P.boot; c.fillRect(-legW*0.6, -1, legW*1.5, 3.4);
+  c.restore();
+
+  /* head */
+  c.save(); c.translate(0, S.neck); c.rotate(p.head + p.torso*0.5);
+  partHead(c, S, P, cls, e);
+  c.restore();
+
+  /* front arm + weapon in its hand */
+  c.save(); c.translate(S.shoulder, S.chest);
+  seg(c, p.shF, S.upArm, armW, armW*0.85, P.armFront, P.edge);
+  seg(c, p.elF, S.foreArm, armW*0.85, armW*0.7, P.skin, P.edge);
+  partWeapon(c, cls, P, e);
+  c.restore();
+
+  c.restore();
+}
+
+/* ---------- palettes ---------- */
+function heroPal(e){
+  const L = e.look, cls = e.cls;
+  const dark = shade(L.shirt, -0.42);
+  return {
+    armor:L.shirt, trim: cls==="paladin"||cls==="knight" ? "#ffd166" : shade(L.shirt,0.3),
+    edge:"rgba(0,0,0,.45)", belt:"#1f2b33",
+    skin:L.skin, skinDark:shade(L.skin,-0.22), eye:"#121a1f",
+    legFront:L.pants, legBack:shade(L.pants,-0.3),
+    armFront:L.shirt, armBack:dark, boot:"#1b242a",
+    cape: (cls==="knight"||cls==="paladin"||cls==="mage") ? dark : null,
+  };
+}
+function mobPal(e){
+  const L = e.look;
+  return { armor:L.skin, trim:"#ffb224", edge:"rgba(0,0,0,.5)", belt:"#2a0a14",
+    skin:L.skin, skinDark:shade(L.skin,-0.25), eye:"#ffe9a8",
+    legFront:L.pants, legBack:shade(L.pants,-0.3),
+    armFront:L.skin, armBack:shade(L.skin,-0.3), boot:"#2a0a14", cape:null };
+}
+function bossPal(){
+  return { armor:"#8a1f36", trim:"#ffb224", edge:"rgba(0,0,0,.55)", belt:"#2a0710",
+    skin:"#ff4d6d", skinDark:"#c23350", eye:"#ffd166",
+    legFront:"#5c1224", legBack:"#440d1a",
+    armFront:"#8a1f36", armBack:"#5c1224", boot:"#2a0710", cape:"#4a0d1c" };
+}
+function shade(hex, k){
+  const n = parseInt(hex.slice(1),16);
+  let r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+  if (k>0){ r+=(255-r)*k; g+=(255-g)*k; b+=(255-b)*k; }
+  else { r*=(1+k); g*=(1+k); b*=(1+k); }
+  return "#"+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v)))
+    .toString(16).padStart(2,"0")).join("");
+}
+
+function drawHero(c,e){    drawRig(c, e, "hero", e.cls||"knight", heroPal(e));
+                           if (e.cast>0) castGlow(c,e); }
+function drawMonster(c,e){ drawRig(c, e, "mob",  "mob",  mobPal(e)); }
+function drawBoss(c,e){    drawRig(c, e, "boss", "boss", bossPal()); }
+
+function castGlow(c,e){
+  const a = Math.min(1, e.cast*2);
+  c.save(); c.globalAlpha = a*0.5;
+  c.fillStyle = (e.ab && e.ab.col) || "#2de6c8";
+  c.beginPath(); c.arc(0,-34,26,0,6.283); c.fill();
+  c.restore();
+}
+
+/* plates are queued during the entity pass, then laid out so they
+   never sit on top of each other, then drawn above the whole scene */
+let PLATES = [];
+function queuePlate(e){ PLATES.push(e); }
+
+function layoutPlates(c){
+  const boxes = [];
+  const list = PLATES.slice().sort((a,b)=>a.x-b.x);
+  for (const e of list){
+    const s = depth(e)/1.62;
+    const fs = Math.max(14, 14*Math.min(s,1.7));
+    c.font = "700 "+fs.toFixed(1)+'px "Silkscreen",monospace';
+    const w = c.measureText(e.name).width + 10;
+    let top = e.y + e.gy - 62*s - (e.isBoss?62:12);
+    const h = fs + 10;
+    // walk upward until this plate clears the ones already placed
+    for (let guard=0; guard<7; guard++){
+      const clash = boxes.some(b =>
+        Math.abs(b.cx - e.x) < (b.w + w)/2 && Math.abs(b.top - top) < h);
+      if (!clash) break;
+      top -= h;
+    }
+    boxes.push({cx:e.x, w, top});
+    plate(c, e, top, fs, s);
+  }
+  PLATES = [];
+}
+
+function plate(c,e,top,fs,s){
+  c.font="700 "+fs.toFixed(1)+'px "Silkscreen",monospace';
+  c.textAlign="center"; c.textBaseline="bottom";
+  c.lineJoin="round"; c.lineWidth=4; c.strokeStyle="rgba(0,0,0,.94)";
+  c.strokeText(e.name, e.x, top);
+  c.fillStyle = e.isBoss ? "#ffb224" : e.side===1 ? "#ffffff" : "#ff8fa3";
+  c.fillText(e.name, e.x, top);
+  if (T.showLevels && e.side===1 && e.rec && e.rec.level>1){
+    const lf=Math.max(10,10*Math.min(s,1.6));
+    c.font='400 '+lf.toFixed(1)+'px "Silkscreen",monospace';
+    c.strokeText("Lv"+e.rec.level, e.x, top-fs-1);
+    c.fillStyle="rgba(45,230,200,.85)";
+    c.fillText("Lv"+e.rec.level, e.x, top-fs-1);
+  }
+  if (!e.isBoss && e.hp < e.maxHp){
+    const w=40*Math.min(s,1.6), h=4;
+    c.fillStyle="rgba(0,0,0,.65)"; c.fillRect(e.x-w/2-1, top+3, w+2, h+2);
+    c.fillStyle = e.side===1 ? (e.hp/e.maxHp>.35?"#2de6c8":"#ff4d6d") : "#ff4d6d";
+    c.fillRect(e.x-w/2, top+4, w*clamp(e.hp/e.maxHp,0,1), h);
+  }
+}
+
+/* ---------- spell effects ---------- */
+function drawClouds(c){
+  for(const q of V.clouds){
+    const k = q.age/q.life;
+    c.save(); c.globalAlpha = (1-k)*0.4;
+    c.fillStyle = q.col;
+    for(let i=0;i<7;i++){
+      const a = i/7*6.283 + q.age*0.7;
+      c.beginPath();
+      c.arc(q.x+Math.cos(a)*q.r*0.55, q.y-26+Math.sin(a)*q.r*0.26,
+            q.r*0.42 + Math.sin(q.age*2+i)*5, 0, 6.283);
+      c.fill();
+    }
+    c.restore();
+  }
+}
+
+function drawShots(c){
+  for(const s of V.shots){
+    c.save();
+    if(s.k==="fireball"){
+      for(let i=4;i>0;i--){
+        c.globalAlpha = .16*i;
+        c.fillStyle = s.col;
+        c.beginPath(); c.arc(s.x - i*17, s.y, 12 - i*1.6, 0, 6.283); c.fill();
+      }
+      c.globalAlpha=1; c.fillStyle="#fff2d0";
+      c.beginPath(); c.arc(s.x,s.y,7,0,6.283); c.fill();
+      c.globalAlpha=.75; c.fillStyle=s.col;
+      c.beginPath(); c.arc(s.x,s.y,12,0,6.283); c.fill();
+    } else {
+      c.strokeStyle=s.col; c.lineWidth=7; c.lineCap="round";
+      c.globalAlpha=.9;
+      c.beginPath(); c.arc(s.x,s.y,24,-1.05,1.05); c.stroke();
+      c.lineWidth=2.5; c.strokeStyle="#ffffff";
+      c.beginPath(); c.arc(s.x,s.y,24,-0.85,0.85); c.stroke();
+    }
+    c.restore();
+  }
+}
+
+function drawFx(c){
+  for(const f of V.fx){
+    const k = f.age/f.life, fade = 1-k;
+    c.save();
+    switch(f.k){
+      case "ring":
+        c.globalAlpha = fade*0.9; c.strokeStyle=f.col;
+        c.lineWidth = (f.w||5)*fade + 1;
+        c.beginPath();
+        c.ellipse(f.x, f.y, f.r0+(f.r1-f.r0)*k, (f.r0+(f.r1-f.r0)*k)*0.34, 0,0,6.283);
+        c.stroke(); break;
+      case "burst":{
+        const r = f.r1*Math.min(1,k*1.8);
+        c.globalAlpha = fade;
+        const g = c.createRadialGradient(f.x,f.y,0,f.x,f.y,r);
+        g.addColorStop(0,"#fff6e0"); g.addColorStop(.45,f.col);
+        g.addColorStop(1,"rgba(0,0,0,0)");
+        c.fillStyle=g; c.beginPath(); c.arc(f.x,f.y,r,0,6.283); c.fill(); break; }
+      case "bolt":{
+        c.globalAlpha=fade; c.strokeStyle=f.col; c.lineWidth=4; c.lineJoin="round";
+        c.shadowColor=f.col; c.shadowBlur=14;
+        c.beginPath(); c.moveTo(f.x1,f.y1);
+        const seg=6;
+        for(let i=1;i<seg;i++){
+          const t=i/seg;
+          c.lineTo(f.x1+(f.x2-f.x1)*t + (Math.random()-.5)*26,
+                   f.y1+(f.y2-f.y1)*t + (Math.random()-.5)*26);
+        }
+        c.lineTo(f.x2,f.y2); c.stroke();
+        c.lineWidth=1.6; c.strokeStyle="#ffffff"; c.stroke(); break; }
+      case "beam":{
+        c.globalAlpha=fade*0.95;
+        const g=c.createLinearGradient(f.x,0,f.x,f.y);
+        g.addColorStop(0,"rgba(255,255,255,0)"); g.addColorStop(.6,f.col);
+        g.addColorStop(1,"#ffffff");
+        c.fillStyle=g; c.fillRect(f.x-19, 0, 38, f.y);
+        c.globalAlpha=fade*0.5; c.fillRect(f.x-34, 0, 68, f.y); break; }
+      case "meteor":{
+        const t=Math.min(1,k/0.72);
+        const sx=f.x+430, sy=f.y-620;
+        const mx=sx+(f.x-sx)*t, my=sy+(f.y-sy)*t;
+        if(t<1){
+          c.globalAlpha=.85; c.strokeStyle=f.col; c.lineWidth=13; c.lineCap="round";
+          c.shadowColor=f.col; c.shadowBlur=26;
+          c.beginPath(); c.moveTo(mx+150,my-215); c.lineTo(mx,my); c.stroke();
+          c.fillStyle="#fff2d0"; c.beginPath(); c.arc(mx,my,17,0,6.283); c.fill();
+        }
+        break; }
+      case "spark":
+        c.globalAlpha=fade; c.fillStyle=f.col;
+        for(let i=0;i<4;i++){
+          const a=i*1.57+f.age*3, r=16+k*26;
+          c.fillRect(f.x+Math.cos(a)*r-2, f.y+Math.sin(a)*r*0.6-2-k*20, 4,4);
+        }
+        break;
+      case "num":
+        c.globalAlpha=Math.min(1,fade*1.6);
+        c.font='700 26px "Silkscreen",monospace';
+        c.textAlign="center"; c.lineJoin="round";
+        c.lineWidth=5; c.strokeStyle="rgba(0,0,0,.9)";
+        c.strokeText(f.txt, f.x, f.y - k*42);
+        c.fillStyle=f.col; c.fillText(f.txt, f.x, f.y - k*42);
+        break;
+    }
+    c.restore();
+  }
+}
+
+function render(){
+  cx.clearRect(0,0,1920,1080);
+  cx.save();
+  if (V.shake>0) cx.translate((Math.random()-.5)*V.shake, (Math.random()-.5)*V.shake);
+  drawClouds(cx);
+  for (const p of V.props){
+    const f=Math.sin(p.bob)*1.5;
+    cx.save(); cx.translate(p.x,p.y+f); cx.scale(1.6,1.6);
+    cx.globalAlpha=.22; px(cx,-14,-11,28,16,"#ffd166"); cx.globalAlpha=1;
+    px(cx,-10,-15,20,13,"#6b4a1c"); px(cx,-10,-9,20,3,"#ffd166");
+    px(cx,-2,-12,4,7,"#ffd166"); cx.restore();
+  }
+  const order = V.ents.slice().sort((a,b)=> (a.isBoss?-1:0)-(b.isBoss?-1:0) || a.y-b.y);
+  for (const e of order){
+    const s=depth(e);
+    cx.save();
+    cx.translate(e.x, e.y + e.gy);
+    cx.globalAlpha*=.3;
+    cx.beginPath(); cx.ellipse(0,1,13*s,4*s,0,0,6.283); cx.fillStyle="#000"; cx.fill();
+    cx.globalAlpha/=.3;
+    if (!e.alive){ const k=(V.t-e.fading)/1.2;
+      cx.globalAlpha=Math.max(0,1-k); cx.translate(0,k*18); cx.rotate(k*.5); }
+    if (e.state==="down") cx.rotate(e.side*0.9);
+    cx.scale(s/1.62, s/1.62);
+    if (e.flash>0 && Math.random()<.6) cx.globalAlpha*=.45;
+    if (e.isBoss)        drawBoss(cx,e);
+    else if (e.side===1) drawHero(cx,e);
+    else                 drawMonster(cx,e);
+    cx.restore();
+    if (e.alive && e.state!=="down") queuePlate(e);
+  }
+  layoutPlates(cx);
+  drawShots(cx);
+  drawFx(cx);
+  cx.restore();
+}
+
+/* ==================================================================
+   HUD
+================================================================== */
+const $=id=>document.getElementById(id);
+const rows=$("rows"); const MAXROWS=7;
+function log(parts){
+  const r=document.createElement("div"); r.className="row";
+  for(const p of parts){ const s=document.createElement("span");
+    s.className=p.c||""; s.textContent=p.t; r.appendChild(s); }
+  rows.insertBefore(r, rows.firstChild);
+  while(rows.children.length>MAXROWS) rows.lastChild.remove();
+  [...rows.children].forEach((x,i)=>x.classList.toggle("dimmed", i>3));
+}
+let toastT=0;
+function toast(txt,col){ const e=$("toast"); e.textContent=txt; e.style.color=col;
+  e.classList.add("on"); toastT=2.6; }
+function hud(dt){
+  const h=heroes().length, m=mobs().length;
+  $("nHero").textContent=h; $("nMob").textContent=m;
+  $("slain").textContent=V.slain+" SLAIN";
+  // where the front line actually sits, as a bar
+  const front = V.ents.filter(e=>e.alive && e.state==="fight");
+  const fx = front.length ? front.reduce((s,e)=>s+e.x,0)/front.length : 960;
+  $("lineFill").style.width = clamp(fx/1920*100, 4, 96).toFixed(1)+"%";
+  const bb=$("bossbar");
+  if (V.boss && V.boss.alive){ bb.classList.add("on");
+    $("bossName").textContent=V.boss.name.toUpperCase();
+    $("bossFill").style.width=clamp(V.boss.hp/V.boss.maxHp,0,1)*100+"%";
+  } else bb.classList.remove("on");
+  if (toastT>0){ toastT-=dt; if(toastT<=0) $("toast").classList.remove("on"); }
+}
+function fit(){
+  const s=Math.min(innerWidth/1920, innerHeight/1080);
+  $("stage").style.transform="scale("+s+") translate("+
+    ((innerWidth/s-1920)/2)+"px,"+((innerHeight/s-1080)/2)+"px)";
+}
+addEventListener("resize",fit); fit();
+
+/* ==================================================================
+   TWITCH CHAT — anonymous, no token
+================================================================== */
+let irc=null, ircRetry=0;
+function stat(m,bad){ $("status").innerHTML=(bad?'<span class="bad">':"<b>")+m+(bad?"</span>":"</b>"); }
+
+function chatConnect(){
+  if (!CFG.channel){ stat("Enter your channel name.",true); return; }
+  if (irc){ try{ irc.close(); }catch(e){} }
+  irc=new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+  irc.onopen=()=>{
+    irc.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
+    irc.send("PASS SCHMOOPIIE");
+    irc.send("NICK justinfan"+(10000+((Math.random()*80000)|0)));
+    irc.send("JOIN #"+CFG.channel.toLowerCase());
+  };
+  irc.onmessage=ev=>{
+    for (const line of ev.data.split("\r\n")){
+      if(!line) continue;
+      if(line.startsWith("PING")){ irc.send("PONG :tmi.twitch.tv"); continue; }
+      if(line.includes(" 001 ")){
+        ircRetry=0;
+        stat("Connected to #"+CFG.channel+" — chat avatars live.");
+        log([{t:"Village open — ",c:"c-v"},{t:"#"+CFG.channel,c:"c-t"}]);
+        setTimeout(()=>$("setup").classList.remove("on"),1200);
+      }
+      if(line.includes("PRIVMSG")) onChat(line);
+    }
+  };
+  irc.onclose=()=>{ ircRetry=Math.min(ircRetry+1,6);
+    setTimeout(chatConnect, ircRetry*2000); };
+}
+
+function onChat(line){
+  let tags={};
+  if (line[0]==="@"){
+    const cut=line.indexOf(" ");
+    for(const kv of line.slice(1,cut).split(";")){
+      const i=kv.indexOf("="); tags[kv.slice(0,i)]=kv.slice(i+1); }
+    line=line.slice(cut+1);
+  }
+  const m=line.match(/^:([^!]+)![^ ]+ PRIVMSG #[^ ]+ :(.*)$/);
+  if(!m) return;
+  const name=tags["display-name"]||m[1];
+  const text=m[2].trim();
+  const col=/^#[0-9a-f]{6}$/i.test(tags.color||"")?tags.color:null;
+
+  const a=joinHero(name,col);
+  if (a.rec){ a.rec.msgs++; if(a.rec.msgs%10===0) Save.put(); }
+
+  if (text[0]==="!"){
+    const [cmd,...rest]=text.slice(1).split(/\s+/);
+    const c=cmd.toLowerCase(), arg=rest.join(" ");
+    if(["jump","dance","sit","wave","hat","stats","charge"].includes(c)) act(a,c);
+    else if(c==="color"||c==="colour") act(a,"color",arg);
+  }
+}
+
+/* ==================================================================
+   EVENTSUB — optional
+================================================================== */
+const TW={ws:null,session:null,bid:null,ready:false,retry:0};
+const REWARDS=[
+  {re:/boss|raid|invade|titan/, act:"boss"},
+  {re:/loot|chest|drop|treasure/, act:"loot"},
+  {re:/monster|mob|goblin|horde|spawn/, act:"mob"},
+];
+
+async function helix(path,params){
+  const u=new URL("https://api.twitch.tv/helix/"+path);
+  for(const k in(params||{})) u.searchParams.set(k,params[k]);
+  const r=await fetch(u,{headers:{"Client-Id":CFG.clientId,
+    "Authorization":"Bearer "+CFG.token}});
+  if(!r.ok) throw new Error(path+" → "+r.status);
+  return r.json();
+}
+async function eventsubConnect(){
+  try{
+    const v=await fetch("https://id.twitch.tv/oauth2/validate",
+      {headers:{Authorization:"OAuth "+CFG.token}});
+    if(!v.ok) throw new Error("token rejected ("+v.status+")");
+    const vd=await v.json();
+    if(CFG.channel && CFG.channel.toLowerCase()!==(vd.login||"").toLowerCase()){
+      const u=await helix("users",{login:CFG.channel});
+      TW.bid=u.data[0]&&u.data[0].id;
+    } else TW.bid=vd.user_id;
+    if(!TW.bid) throw new Error("channel not found");
+    esOpen("wss://eventsub.wss.twitch.tv/ws?keepalive_timeout_seconds=30");
+  }catch(e){ stat("Chat is live. Follows/points off: "+e.message,true); }
+}
+function esOpen(url){
+  if(TW.ws){ try{TW.ws.close();}catch(e){} }
+  TW.ws=new WebSocket(url);
+  TW.ws.onmessage=ev=>{
+    let m; try{ m=JSON.parse(ev.data);}catch(e){return;}
+    const ty=m.metadata&&m.metadata.message_type;
+    if(ty==="session_welcome"){ TW.session=m.payload.session.id; esSubscribe(); }
+    else if(ty==="session_reconnect"){ esOpen(m.payload.session.reconnect_url); }
+    else if(ty==="notification"){ esEvent(m.metadata.subscription_type,m.payload.event); }
+  };
+  TW.ws.onclose=()=>{ if(!TW.ready) return;
+    TW.retry=Math.min(TW.retry+1,6);
+    setTimeout(()=>esOpen("wss://eventsub.wss.twitch.tv/ws"),TW.retry*2000); };
+}
+async function esSub(type,version,condition){
+  const r=await fetch("https://api.twitch.tv/helix/eventsub/subscriptions",{
+    method:"POST",headers:{"Client-Id":CFG.clientId,
+      "Authorization":"Bearer "+CFG.token,"Content-Type":"application/json"},
+    body:JSON.stringify({type,version,condition,
+      transport:{method:"websocket",session_id:TW.session}})});
+  if(!r.ok) throw new Error(type.split(".").pop()+": "+r.status);
+}
+async function esSubscribe(){
+  const b=TW.bid,out=[];
+  for(const [t,v,c] of [
+    ["channel.follow","2",{broadcaster_user_id:b,moderator_user_id:b}],
+    ["channel.channel_points_custom_reward_redemption.add","1",{broadcaster_user_id:b}],
+    ["channel.subscribe","1",{broadcaster_user_id:b}]]){
+    try{ await esSub(t,v,c); out.push("✓ "+t.split(".").slice(1).join(".")); }
+    catch(e){ out.push("✗ "+e.message); }
+  }
+  TW.ready=true;
+  stat("Chat + events live on #"+CFG.channel+"\n"+out.join("\n"));
+}
+function esEvent(type,ev){
+  const name=ev.user_name||ev.user_login;
+  if(type==="channel.follow"){
+    spawnMonster(name);
+    log([{t:name,c:"c-h"},{t:" followed — joins the monsters",c:"c-v"}]);
+    toast(name+" FOLLOWED","var(--horde)"); return;
+  }
+  if(type==="channel.subscribe"){
+    const a=joinHero(name); a.look.hat="crown";
+    if(a.rec){ a.rec.hat="crown"; Save.put(); }
+    act(a,"dance");
+    log([{t:name,c:"c-l"},{t:" subscribed — crowned",c:"c-v"}]);
+    toast(name+" SUBSCRIBED","var(--loot)"); return;
+  }
+  if(type==="channel.channel_points_custom_reward_redemption.add"){
+    const title=((ev.reward&&ev.reward.title)||"").toLowerCase();
+    let a="loot"; for(const r of REWARDS) if(r.re.test(title)){ a=r.act; break; }
+    if(a==="boss") spawnBoss(name);
+    else if(a==="mob") spawnMonster(name,{tough:30});
+    else dropLoot(name);
+  }
+}
+
+/* ==================================================================
+   DEMO
+================================================================== */
+const FAKE=["AFHxReaper","PixelWitch","sogg","Marrow_TV","nootnoot42","QueenBaklava",
+  "DoomFridge","lilcactus","VoidRunner","Benny_Bits","theGoose","mx_kayla",
+  "StaticHalo","ZeroPing","CoffeeGremlin","HexaByte","grumblor","Nine_Volt"];
+let demo=false, demoT=0;
+function demoTick(dt){
+  if(!demo) return;
+  demoT-=dt; if(demoT>0) return;
+  demoT=rnd(1.1,3);
+  const n=pick(FAKE), r=Math.random();
+  if(r<.42){ const a=joinHero(n); if(a.rec) a.rec.msgs++; }
+  else if(r<.52) act(joinHero(n),"jump");
+  else if(r<.60) act(joinHero(n),"dance");
+  else if(r<.66) act(joinHero(n),"hat");
+  else if(r<.78) spawnMonster(n);
+  else if(r<.88) dropLoot(n);
+  else if(!(V.boss&&V.boss.alive)) spawnBoss(n);
+}
+function startDemo(){ demo=true; demoT=.3;
+  log([{t:"DEMO",c:"c-l"},{t:" — fake chatters, no Twitch connection",c:"c-v"}]);
+  $("setup").classList.remove("on"); }
+
+/* ==================================================================
+   SETUP / KEYS / BOOT
+================================================================== */
+function openSetup(){
+  $("f-chan").value=CFG.channel; $("f-cid").value=CFG.clientId; $("f-tok").value=CFG.token;
+  $("setup").classList.add("on");
+}
+$("b-go").onclick=()=>{
+  CFG.channel=$("f-chan").value.trim().replace(/^#/,"");
+  CFG.clientId=$("f-cid").value.trim();
+  CFG.token=$("f-tok").value.trim().replace(/^oauth:/i,"");
+  saveCfg(); demo=false;
+  stat("Connecting to chat…");
+  chatConnect();
+  if(CFG.clientId&&CFG.token) eventsubConnect();
+};
+$("b-demo").onclick=startDemo;
+$("b-wipe").onclick=()=>{ Save.wipe(); V.ents.length=0; V.props.length=0;
+  V.boss=null; V.slain=0; stat("Save wiped. Everyone starts at level 1."); };
+
+addEventListener("keydown",e=>{
+  if($("setup").classList.contains("on") && e.key!=="Escape") return;
+  const k=e.key.toLowerCase(), n=pick(FAKE);
+  if(k==="b") spawnBoss(n);
+  else if(k==="m") spawnMonster(n);
+  else if(k==="h") joinHero(n);
+  else if(k==="l") dropLoot(n);
+  else if(k==="d"){ demo=!demo; demoT=.2; log([{t:demo?"Demo on":"Demo off",c:"c-l"}]); }
+  else if(k==="s"||e.key==="Escape") $("setup").classList.toggle("on");
+});
+
+// open with the regulars already marching in
+(function seed(){
+  const all=Object.values(Save.d).sort((a,b)=>b.msgs-a.msgs).slice(0,8);
+  for(const r of all) joinHero(r.name);
+  for(let i=0;i<3;i++) spawnMonster(null);
+  if(all.length) log([{t:"The regulars are back — ",c:"c-v"},{t:all.length+" heroes",c:"c-t"}]);
+  else log([{t:"Monsters approach from the east…",c:"c-v"}]);
+})();
+
+let last=performance.now();
+(function frame(now){
+  const dt=Math.min((now-last)/1000,.05); last=now;
+  step(dt); demoTick(dt); render(); hud(dt);
+  requestAnimationFrame(frame);
+})(performance.now());
+
+if(CFG.demo) startDemo();
+else if(CFG.channel){ chatConnect(); if(CFG.clientId&&CFG.token) eventsubConnect(); }
+else openSetup();
+</script>
+</body>
+</html>
