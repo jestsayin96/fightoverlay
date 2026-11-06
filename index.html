@@ -197,8 +197,6 @@ const T = {
   mobHold:    1080,    // ...and monsters hold this one. Closer together
                        //   than they were: 420px apart meant the two
                        //   idle ranks stared at each other out of reach
-  colSpread:  1000,    // cost per occupant of sharing a column
-  colReach:   2,       // ...but never displaced more than this many columns
   fightLeft:  380,     // duels are held inside this band of the frame
   fightRight: 1560,    //   so the fight can never drift off to an edge
   bossHold:   1420,    // a boss plants itself here and waits
@@ -781,76 +779,9 @@ function assignFoes(){
       if (d < bd){ bd=d; best=m; }
     }
     if (best){ taken.add(best.id); h.foeId=best.id; best.foeId=h.id; }
-    else { h.foeId = null; h.duelCol = null; }
+    else h.foeId = null;
   }
-  for (const m of ms) if (!taken.has(m.id)){ m.foeId = null; m.duelCol = null; }
-
-  /* Give every duel a column of its own.
-
-     lineGoal used to snap a pair to the column nearest its own midpoint.
-     That has no restoring force: the moment the crowd drifts together
-     every midpoint rounds to the same column, which pulls them tighter,
-     which makes the next round agree even harder. A 27-body fight ended
-     up inside a 300px ball with half the frame empty beside it.
-
-     Claiming the columns makes that impossible, because two duels cannot
-     want the same one. The two rules that keep it cheap: a pair keeps the
-     column it already holds while nothing else has taken it, so the grid
-     does not reshuffle under the fighters' feet the way the rank-ordered
-     version did (that one cost half the combat time); and a pair that has
-     to move takes the NEAREST free column, so the walk stays short. Past
-     eleven duels the columns double up rather than overflow - the cost is
-     ordered by how many pairs a column already holds, so load spreads
-     evenly before anyone gets a third. */
-  const COLS = 11;
-  const cw   = (T.fightRight - T.fightLeft) / (COLS - 1);
-  const by   = new Map(V.ents.map(e => [e.id, e]));
-  const pairs = [];
-  for (const h of hs){
-    const m = h.foeId != null ? by.get(h.foeId) : null;
-    if (m) pairs.push({ h, m, mid: (h.x + m.x) / 2,
-                        touching: Math.abs(h.x - m.x) <= T.engage + 18 });
-  }
-  const use  = new Array(COLS).fill(0);
-  const want = p => clamp(Math.round((p.mid - T.fightLeft) / cw), 0, COLS - 1);
-
-  /* A pair already toe to toe claims the column it is standing in, first
-     and unconditionally. Moving a fight that has started is the whole cost
-     of this scheme: the first version sent engaged pairs off to a tidier
-     column and the kill rate fell 40%. They are not charged for the column
-     and they never contest one, so the grid forms around the fighting
-     rather than dragging it about. */
-  for (const p of pairs) if (p.touching){ p.col = want(p); use[p.col]++; }
-
-  /* Everyone still walking fills in around them. Keeping the column you
-     already hold stops the grid reshuffling under your feet between ticks. */
-  const moving = [];
-  for (const p of pairs){
-    if (p.touching) continue;
-    const c = p.h.duelCol;
-    if (c != null && c >= 0 && c === p.m.duelCol && use[c] === 0){ use[c]++; p.col = c; }
-    else moving.push(p);
-  }
-  for (const p of moving){
-    const w  = want(p);
-    /* Only look at columns near where the duel already is. A sweep over the
-       whole row showed the trade is with DISTANCE TRAVELLED, not with
-       sharing: spread bought band occupancy and paid kills at every setting
-       (22.9% band / 19.5 kills unbounded-off, 68.9% / 12.0 at its widest),
-       because an unbounded search can send a pair clean across the frame.
-       Bounded, the column grid stops being a global tidy-up and becomes a
-       local repulsion: a clump can only push itself apart a column at a
-       time, so it still diffuses out over a few ticks, but no single walk
-       is longer than colReach columns. */
-    const lo = Math.max(0, w - T.colReach), hi = Math.min(COLS - 1, w + T.colReach);
-    let best = w, bd = Infinity;
-    for (let c = lo; c <= hi; c++){
-      const d = use[c] * T.colSpread + Math.abs(c - w);
-      if (d < bd){ bd = d; best = c; }
-    }
-    use[best]++; p.col = best;
-  }
-  for (const p of pairs){ p.h.duelCol = p.col; p.m.duelCol = p.col; }
+  for (const m of ms) if (!taken.has(m.id)) m.foeId = null;
 }
 
 function nearestFoe(e){
@@ -989,16 +920,33 @@ function lineGoal(e, foe){
        A fixed rally point was too expensive when march was 78px/s - the
        walk ate the fight - but at 210 it costs about a second.
 
-       The column is claimed in assignFoes rather than worked out here:
-       picking the nearest one per frame let every pair agree on the same
-       column once the crowd closed up, and picking one from the pair id
-       sent fighters walking away from the opponent they were locked on,
-       which reads as avoidance. See the note there. The fallback below
-       only runs for a pair formed outside assignFoes. */
-    const cols = 11;
-    const w    = (T.fightRight - T.fightLeft) / (cols - 1);
-    const col  = (e.duelCol != null && e.duelCol >= 0) ? e.duelCol
-               : clamp(Math.round(((e.x + foe.x)/2 - T.fightLeft) / w), 0, cols - 1);
+       Snapped to the NEAREST column rather than one picked from the pair
+       id: a hashed column sent fighters walking across the frame away
+       from the opponent they were locked on, which reads as avoidance.
+
+       Claiming a column per duel in assignFoes was tried and reverted, and
+       the numbers are worth keeping because they close the question. It
+       worked as scenery - band occupancy 25% -> 70%, overlapping sprites
+       4.4 -> 1.6 - and cost a third of the fighting every time:
+
+         bound    band   fighting  killed      (10 viewers, 2 seeds each)
+         none    25.4%     61.4%    17.5
+         +-1     40.6%     50.0%    12.0
+         +-2     40.7%     48.2%    15.0
+         +-3     49.3%     40.9%    13.0
+         +-5     59.2%     39.9%    15.0
+         +-11    70.3%     39.2%    13.0
+
+       There is no knee: every column scheme buys spread and pays kills in
+       a straight line, and bounding the displacement did not help, because
+       re-pairing every 0.4s re-targets the goal faster than anyone can
+       arrive. Marching went 33.6% -> ~49% at EVERY setting.
+
+       So spreading the fight is not something to fix at the fight. The
+       crowd balls up because both hold lines sit in the middle of the
+       frame, 220px apart, and that is where everyone meets - the next
+       thing to try is spreading the formation itself, which costs no
+       walking because it is where they already stand. */
     const meet = T.fightLeft + col * w;
     return { x: meet - e.side*(T.engage*0.5),
              y: T.stripTop + 9 + (slot/(lanes-1)) * band };
