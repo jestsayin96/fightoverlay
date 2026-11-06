@@ -12,31 +12,73 @@ bottom of the frame. Runs as a single OBS Browser Source.
 
 ## Art pipeline (Pixelwright -> overlay)
 
-The knight and the goblin are original art and the template for the rest.
-`tools_build_knight.py` is now `build_char.py <name> <srcdir> <outdir>` and
-works for any character the same way.
+Every character on the field is original art now. Nothing borrows the
+0x72 pack's hurt frame to fake an attack, and nothing carries an upstream
+licence.
 
-Scale note: the 0x72 pack draws monsters at half its heroes' height (30px
-against 60px). The replacements use a more natural ratio - knight 66px,
-goblin 52px - so until the pack is fully replaced a new monster stands
-noticeably taller than the 0x72 ones beside it.
+| set | height | cells | feet |
+|---|---|---|---|
+| knight | 66px | 80x80 | (36,74) |
+| paladin | 62px | 80x80 | (40,74) |
+| mage | 62px | 80x80 | (40,74) |
+| barbarian | 62px | 80x80 | (40,74) |
+| cleric | 56px | 80x80 | (40,74) |
+| rogue | 56px | 80x80 | (40,74) |
+| mob_skelet | 54px | 80x80 | (40,74) |
+| mob_goblin | 52px | 80x80 | (38,72) |
 
-1. Draw the rig in Pixelwright (parts + variants). Parts **cannot rotate**, so a
-   sword swing needs a redrawn arm/blade per key pose, plus `smear` variants for
-   the blur. Children inherit the parent's `dx/dy`, so keep child offsets to 1-2px
-   or limbs detach.
-2. `project_audit` until clean. Stacked outline rows where two parts meet are the
-   big one: make the lower row a dark shade of the fill, not a second outline.
-3. `export_build` preset `png-frames` at **scale 3**, then run
-   `build_knight.py`: it recovers the true 40x40 pixels (asserting the export was
-   a clean block upscale) and re-renders at **2x** so figures match the 0x72
-   heroes' ~60px height. Exporting straight at 3x makes them 99px — far too big.
-4. Drop the strips in `sprites/<name>/` and register with `defSprite(key, files, geo)`.
+Each has idle (2), walk (4), attack (7) and death (4) frames.
 
-`animOf` plays real `attack`/`death` clips when a set has them and returns
-`real:true`; `drawSprite` then skips the lean-and-rotate faking and the drawn
-slash arc, which would otherwise double up on the blade's own smear.
+### Drawing a new one
 
+1. Rig it in Pixelwright: armBack, legBack, body, head, legFront,
+   armFront, a weapon parented to armFront, and a `smear`. Give armFront
+   and the weapon `raised` and `struck` variants and the smear
+   `up`/`mid`/`down`.
+2. Parts **cannot rotate**, so a swing needs a redrawn arm and weapon per
+   key pose. Children inherit the parent's `dx/dy`, so keep a child's own
+   offset to 1-2px or limbs detach.
+3. The smear's default variant is whatever you write first, and it shows
+   at rest - hide it explicitly in every frame that is not mid-swing.
+4. `project_audit` until only deliberate findings remain. The recurring
+   one: where the head's bottom outline sits on the body's top outline it
+   reads as a thick dark bar at the neck. Make the lower row a dark shade
+   of the fill, not a second outline, and keep the outline at its ends.
+5. `export_build` preset `png-frames` at **scale 3**, then
+   `build_char.py <name> <srcdir> <outdir>`. It recovers the true 40x40
+   pixels (asserting the export really was a clean block upscale) and
+   re-renders at 2x.
+6. Register with `defSprite(key, files, geo)`. **Check two numbers the
+   script gives you rather than trusting them:** `ax` is the bounding-box
+   centre, which is wrong when a weapon juts out - use the torso centre;
+   and the figure height is whatever you happened to draw, so compare it
+   against the table above before accepting it.
+7. Monsters: add the name to `MOB_SPRITES` (and drop it from
+   `MOB_SPRITES_RETIRED`).
+
+`animOf` plays real `attack`/`death` clips when a set has them and
+returns `real:true`; `drawSprite` then skips the lean-and-rotate faking
+and the drawn slash arc, which would double up on the blade's own smear.
+
+## Combat
+
+The numbers are steered, not fixed. Hero damage scales with how many
+viewers are watching and with which abilities their names roll, and the
+fight is bistable - survivors accumulate, dilute the heroes' focus and
+survive longer still. One set of constants measured across seeds gave
+monster lifetimes anywhere from 2 to 32 seconds.
+
+Two controllers in `steerDifficulty`:
+
+- `V.mobTough` steers monster health toward `T.targetLife` (9s).
+- `V.mobPower` steers monster damage toward `T.targetDowns`
+  (0.5 knockdowns per hero per minute), fed by `V.downEma`.
+
+If you change combat, measure it: drive `step(dt)` in a loop headlessly,
+sample **every step** (a knockdown lasts 0.42s and will slip between
+once-a-second samples), and run several name seeds - one run is noise.
+Count knockdowns from `e.state === "down"` transitions, and note that
+`yeet()` sets that state too.
 
 ## 1. What exists
 
