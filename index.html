@@ -194,6 +194,7 @@ const T = {
   heroGate:   -50,     // heroes walk on from here
   mobGate:    1970,    // monsters walk on from here
   nameMaxW:   220,     // px; a 25-char Twitch name draws ~300 unclipped
+  bossScale:  1.5,     // bosses draw at 1.5x; the art is 2x, so 3x whole pixels
   heroHold:   860,     // with nothing to fight, heroes hold this line
   mobHold:    1080,    // ...and monsters hold this one. Closer together
                        //   than they were: 420px apart meant the two
@@ -456,7 +457,15 @@ function joinHero(name, chatColor){
   a.atk   = 6 + 1.6*rec.level;
   a.rate  = 1.0;
   a.ab    = ABILITIES[hash(a.key+"spell") % ABILITIES.length];
-  a.cls   = CLASS_OF[a.ab.id] || "knight";
+  /* Class used to be read off the ability - CLASS_OF[ab] - which sounds
+     tidy and is badly skewed: three of the eight spells are mage spells,
+     so 37% of all viewers were mages and the rest split the remainder.
+     A viewer reported "I keep spawning as the same character", and they
+     were right. Class now hashes on its own, which spreads it evenly
+     (16-17% each) while still being fixed per name, so a regular still
+     turns up as the same character every stream. CLASS_OF survives only
+     for the flavour text that names a spell's school. */
+  a.cls   = HERO_SPRITES[hash(a.key+"class") % HERO_SPRITES.length];
   a.spriteKey = a.cls;
   if (rec.klass){ a.cls = rec.klass; a.spriteKey = rec.klass; }
   a.abcd  = rnd(0.5, a.ab.cd*0.5);
@@ -1561,6 +1570,14 @@ function drawSprite(c, e, set){
   const src = dyedSource(a, dyeSpec(e));
   c.save();
   c.imageSmoothingEnabled = false;
+  /* Bosses are drawn bigger than their sheets rather than redrawn bigger.
+     At 88px against monsters at 50-62px a boss read as just another
+     monster - the streamer could not tell which one it was. 1.5x is chosen
+     so the pixels stay square: the sheets are already a 2x render of 40x40
+     art, so 1.5 lands on a whole 3x of the original pixels. Scaling happens
+     around the origin, which sits at the feet, so the boss grows upward and
+     stays on its ground line. */
+  if (e.isBoss && T.bossScale !== 1) c.scale(T.bossScale, T.bossScale);
   /* r.real means the sheet has a genuine clip for this beat: none of the
      lean-and-rotate faking below applies, and the drawn arc would double
      up on the blade's own smear. */
@@ -2037,7 +2054,8 @@ function layoutPlates(c){
   for (const e of list){
     const s = depth(e)/1.62;
     const sh2 = spriteSetFor(e);
-    const base = sh2 ? (e.y + e.gy - (sh2.fh != null ? sh2.fh : 60) - 4)
+    const base = sh2 ? (e.y + e.gy - (sh2.fh != null ? sh2.fh : 60) *
+                                      (e.isBoss ? T.bossScale : 1) - 4)
                      : (e.y + e.gy - 62*s - (e.isBoss?62:12));
     let put = null;
     /* A name is only useful if you can tell WHOSE it is, so it never moves
