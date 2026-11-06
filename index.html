@@ -1128,6 +1128,10 @@ defSprite("rogue",
 defSprite("barbarian",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:40, ay:74, fh:62, dir:"sprites/barbarian/"});
+/* ax is the torso centre again: the shield juts left, the hammer right */
+defSprite("paladin",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:62, dir:"sprites/paladin/"});
 MOB_SPRITES.forEach(m=>defSprite("mob_"+m,
   {idle:"mob_"+m+"_idle.png", walk:"mob_"+m+"_walk.png"}));
 
