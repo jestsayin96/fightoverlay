@@ -1187,8 +1187,8 @@ const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian"];
    gives each viewer's monster its own colour, so the far line still does
    not look like one sprite repeated. Add names back here as they are
    drawn. */
-const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp"];
-const MOB_SPRITES_RETIRED = ["chort","zombie",
+const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp","chort"];
+const MOB_SPRITES_RETIRED = ["zombie",
                              "masked_orc","swampy"];
 const BOSS_SPRITES  = ["demon","ogre","bigzombie"];
 
@@ -1269,6 +1269,14 @@ defSprite("mob_orc_warrior",
 defSprite("mob_imp",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:40, ay:74, fh:50, dir:"sprites/imp/"});
+
+/* The Chort, 58px. Blue: the one colour the monster side did not have,
+   against the goblin's green, the skeleton's bone, the orc's dark green
+   and the imp's red. No weapon and no wing, so for once build_char.py's
+   anchor needed no correction. */
+defSprite("mob_chort",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:58, dir:"sprites/chort/"});
 BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
   {idle:"boss_"+b+"_idle.png", walk:"boss_"+b+"_walk.png"}));
 

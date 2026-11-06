@@ -53,6 +53,7 @@ licence.
 | mob_goblin | 52px | 80x80 | (38,72) |
 | mob_orc_warrior | 62px | 80x80 | (40,74) |
 | mob_imp | 50px | 80x80 | (40,74) |
+| mob_chort | 58px | 80x80 | (40,74) |
 | boss_demon | 90px | 112x112 | (58,102) |
 | boss_ogre | 88px | 112x112 | (56,102) |
 | boss_bigzombie | 88px | 112x112 | (58,102) |
