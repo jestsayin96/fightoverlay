@@ -1434,6 +1434,19 @@ function animOf(e, set){
     const u = (k - 0.62) / 0.38;
     return {a:set.idle, f:0, recover:u};
   }
+  /* !wave and !sit had no drawn pose at all. The commands set a state that
+     paused the character and nothing else, so chat typed !wave and watched
+     someone stand perfectly still - which reads as the overlay ignoring
+     them. Nothing in the sheets is a wave, and drawing one for seventeen
+     characters is its own job, but every attack clip opens with the arm
+     up: holding those opening cells and rocking between them reads as a
+     raised arm moving. Sit is handled at draw time instead, by sinking the
+     figure, because no cell in any sheet looks seated. */
+  if (e.state === "wave" && hasAtk){
+    const a = set.attack;
+    const f = 1 + (Math.floor(V.t * 7 + e.id) % 2);
+    return {a, f: Math.min(a.frames - 1, f), real:true};
+  }
   if (e.state==="dance" && set.walk && set.walk.ready){
     const a=set.walk;
     return {a, f:((Math.floor(e.walk/(Math.PI/2))%a.frames)+a.frames)%a.frames};
@@ -2306,6 +2319,11 @@ function render(){
       const p=(e.fallT||0)>0 ? 1-e.fallT/0.42 : 1;
       cx.rotate(-e.face*1.05*clamp(p,0,1));
     }
+    /* Sitting: squash toward the feet, which are at the origin here, so the
+       figure settles onto the ground instead of shrinking in place. Cheap,
+       but it reads as sat down and it costs no new art on any of the
+       seventeen sheets. */
+    if (e.state === "sit") cx.scale(1, 0.74);
     if (!spriteSetFor(e)) cx.scale(s/1.62, s/1.62);
     if (e.flash>0 && Math.random()<.6) cx.globalAlpha*=.45;
     const sh = spriteSetFor(e);
@@ -2395,18 +2413,37 @@ addEventListener("resize",fit); fit();
 /* ==================================================================
    TWITCH CHAT — anonymous, no token
 ================================================================== */
-let irc=null, ircRetry=0;
+let irc=null, ircRetry=0, ircJoined=false, ircJoinTimer=null;
 function stat(m,bad){ $("status").innerHTML=(bad?'<span class="bad">':"<b>")+m+(bad?"</span>":"</b>"); }
+
+/* Ask to join, and keep asking until Twitch confirms. A JOIN can be lost
+   without any error, and an overlay that is silently in no room looks
+   exactly like a quiet chat - which is the worst way for this to fail,
+   because nothing on screen says anything is wrong. */
+function ircJoin(){
+  if (!irc || irc.readyState !== 1 || !CFG.channel) return;
+  irc.send("JOIN #"+CFG.channel.toLowerCase());
+  clearTimeout(ircJoinTimer);
+  ircJoinTimer = setTimeout(()=>{ if(!ircJoined) ircJoin(); }, 5000);
+}
 
 function chatConnect(){
   if (!CFG.channel){ stat("Enter your channel name.",true); return; }
   if (irc){ try{ irc.close(); }catch(e){} }
   irc=new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+  ircJoined=false; clearTimeout(ircJoinTimer);
   irc.onopen=()=>{
     irc.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
     irc.send("PASS SCHMOOPIIE");
     irc.send("NICK justinfan"+(10000+((Math.random()*80000)|0)));
-    irc.send("JOIN #"+CFG.channel.toLowerCase());
+    /* JOIN is deliberately NOT sent here. It used to be, in the same burst
+       as NICK, and that is why the overlay would sit "connected" all stream
+       with an open socket and never receive a single message: Twitch had
+       not finished authenticating us, so it dropped the JOIN on the floor
+       and said nothing about it. Caught by pinging the live socket from the
+       streamer's own machine - it answered PONG, proving the connection was
+       healthy, while no chat ever arrived. Join only once 001 says we are
+       in. */
   };
   irc.onmessage=ev=>{
     for (const line of ev.data.split("\r\n")){
@@ -2414,14 +2451,23 @@ function chatConnect(){
       if(line.startsWith("PING")){ irc.send("PONG :tmi.twitch.tv"); continue; }
       if(line.includes(" 001 ")){
         ircRetry=0;
+        ircJoin();                       // now, not before
         stat("Connected to #"+CFG.channel+" — chat avatars live.");
         log([{t:"Village open — ",c:"c-v"},{t:"#"+CFG.channel,c:"c-t"}]);
         setTimeout(()=>$("setup").classList.remove("on"),1200);
       }
+      /* Twitch echoes our own JOIN and follows it with ROOMSTATE. Either is
+         proof we are actually in the room, which is what the watchdog waits
+         for - "socket open" never was. */
+      if(!ircJoined && (line.includes(" ROOMSTATE ") ||
+                        /:justinfan\d+![^ ]* JOIN /.test(line))){
+        ircJoined=true; clearTimeout(ircJoinTimer);
+      }
       if(line.includes("PRIVMSG")) onChat(line);
     }
   };
-  irc.onclose=()=>{ ircRetry=Math.min(ircRetry+1,6);
+  irc.onclose=()=>{ clearTimeout(ircJoinTimer); ircJoined=false;
+    ircRetry=Math.min(ircRetry+1,6);
     setTimeout(chatConnect, ircRetry*2000); };
 }
 
