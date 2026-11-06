@@ -47,6 +47,17 @@ so a live stream never hard-crashes, which means a fatal bug reports **zero
 page errors**. And frame rate stays at 60 either way, because the renderer
 is fine - it is the simulation that is dead.
 
+**This is wired to a git hook, so nobody has to remember it.**
+`tools/hooks/pre-commit` runs the verifier against the *staged* content of
+`index.html` and refuses the commit if it fails. It only runs when
+`index.html` is actually staged, so doc-only commits stay fast, and
+`SKIP_VERIFY=1 git commit ...` overrides it deliberately.
+
+`core.hooksPath` is local git config and does not survive a fresh clone, so
+after cloning run once:
+
+    git config core.hooksPath tools/hooks
+
 `tools/verify.js` boots the overlay headless, runs it for 30 seconds and
 checks the things that have each actually been wrong: `window.__jvErr` is
 empty, monsters die, fighters engage, fps holds, entities exist. It exits

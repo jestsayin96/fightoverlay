@@ -1,0 +1,36 @@
+#!/bin/sh
+# Refuses a commit that breaks the overlay.
+#
+# Added after 2026-11-06, when a build where nothing ever died was committed
+# and pushed because the only gate was a syntax check. "Remember to run the
+# verifier" is not a gate; this is.
+#
+# Only runs when index.html is actually staged, so doc-only commits are fast.
+# Skip deliberately with:  SKIP_VERIFY=1 git commit ...
+
+if [ -n "$SKIP_VERIFY" ]; then
+  echo "pre-commit: verify skipped (SKIP_VERIFY set)"
+  exit 0
+fi
+
+if ! git diff --cached --name-only | grep -q '^index\.html$'; then
+  exit 0
+fi
+
+echo "pre-commit: index.html changed - verifying the overlay still works..."
+# Verify the STAGED content, not the working tree, so a commit is judged on
+# exactly what it would ship.
+tmp=$(mktemp -d)
+git show :index.html > "$tmp/index.html" || exit 1
+for d in sprites tools; do [ -e "$d" ] && ln -s "$(pwd)/$d" "$tmp/$d"; done
+
+if node tools/verify.js --seconds 20 --file "$tmp/index.html"; then
+  rm -rf "$tmp"
+  exit 0
+else
+  rm -rf "$tmp"
+  echo ""
+  echo "pre-commit: REFUSED - the staged overlay does not work."
+  echo "            Fix it, or commit with SKIP_VERIFY=1 if you know why."
+  exit 1
+fi

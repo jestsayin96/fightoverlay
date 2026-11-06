@@ -20,7 +20,10 @@ const { chromium } = require('playwright');
 const arg = (k, d) => { const i = process.argv.indexOf(k);
                         return i > -1 ? Number(process.argv[i+1]) : d; };
 const SECONDS = arg('--seconds', 30);
-const FILE = 'file://' + path.resolve(__dirname, '..', 'index.html');
+const fileArg = (() => { const i = process.argv.indexOf('--file');
+                         return i > -1 ? process.argv[i+1] : null; })();
+const FILE = 'file://' + (fileArg ? path.resolve(fileArg)
+                                  : path.resolve(__dirname, '..', 'index.html'));
 
 (async () => {
   const browser = await chromium.launch();
