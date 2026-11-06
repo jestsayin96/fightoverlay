@@ -207,7 +207,7 @@ const T = {
   mobFloor:   2,       // never fewer monsters about than this...
   mobPerHero: 0.8,     // ...and roughly this many per hero, up to maxMobs
   mobHp:      70,      // a monster's health before the crowd scaling below
-  mobAtk:     6,       // ...and its damage
+  mobAtk:     4,       // ...and its damage. Was 6, when fights were rare
   heroHp:     190,     // a level-1 hero's health
   heroHpLvl:  30,      // ...plus this per level
   downTime:   4.5,     // seconds a knocked-down hero stays down
@@ -218,17 +218,27 @@ const T = {
   crowdScale: 0.10,    // +10% monster health per extra hero, before steering
   crowdAtkCap:1.0,     // damage scaling stops here
   targetLife: 9,       // seconds a monster should survive - steered, see below
-  steerRate:  0.030,   // how hard to correct toward it
+  steerRate:  0.045,   // how hard to correct toward it
   toughMin:   0.40,    // bounds on the steering, so it cannot run away
   toughMax:   6.00,
-  targetDowns:0.5,     // knockdowns per hero per minute - also steered
-  powerRate:  0.060,   // how hard to correct toward it
+  /* Knockdowns per hero per minute. Raised from 0.5 once the fighters
+     actually started fighting: measured reality was 0.9-1.75, so a 0.5
+     target just pinned the controller at its floor and never converged.
+     About one knockdown per hero per 75s is good drama, not a death
+     spiral. */
+  targetDowns:0.8,
+  powerRate:  0.140,   // was 0.060: too slow to haul the opening ramp back
   /* The floor matters for feel, not just balance: steering monster damage
      down far enough put "1.5" and "1.7" on screen, which reads as nothing
      happening. Heroes carry a bigger health pool instead, so hits stay
      legible numbers and the controller still has room to steer. */
-  powerMin:   0.50,
-  powerMax:   1.80,
+  powerMin:   0.40,
+  /* Capped lower than it was. With nobody knocked down yet, downRate
+     starts at 0 and the controller reads that as "too easy" and climbs
+     for the whole opening - it was reaching 1.59 before the first
+     knockdown pulled it back, which is why a three-viewer stream got
+     hit hardest. */
+  powerMax:   1.25,
   spawnBurst: 4,       // how many can arrive at once while the line is thin
   mendTargets:4,       // a heal reaches this many allies...
   mendAmount: 28,      // ...for this much each
@@ -1141,8 +1151,8 @@ const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian"];
    gives each viewer's monster its own colour, so the far line still does
    not look like one sprite repeated. Add names back here as they are
    drawn. */
-const MOB_SPRITES   = ["goblin","skelet"];
-const MOB_SPRITES_RETIRED = ["orc_warrior","imp","chort","zombie",
+const MOB_SPRITES   = ["goblin","skelet","orc_warrior"];
+const MOB_SPRITES_RETIRED = ["imp","chort","zombie",
                              "masked_orc","swampy"];
 const BOSS_SPRITES  = ["demon","ogre","bigzombie"];
 
@@ -1209,6 +1219,13 @@ defSprite("mob_goblin",
 defSprite("mob_skelet",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:40, ay:74, fh:54, dir:"sprites/skeleton/"});
+
+/* The Orc Warrior, 62px: taller than the goblin (52) and skeleton (54),
+   which is what a warrior should look like next to them. build_char.py
+   put ax at 44 because the axe juts right; the torso centre is 40. */
+defSprite("mob_orc_warrior",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:62, dir:"sprites/orc_warrior/"});
 BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
   {idle:"boss_"+b+"_idle.png", walk:"boss_"+b+"_walk.png"}));
 
