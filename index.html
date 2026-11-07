@@ -290,6 +290,8 @@ const T = {
                        //   be the best shot at it, not the worst.
   megaAtk:    44,
   logShow:    15,      // seconds the battle log stays up when asked for
+  lootHold:   25,      // seconds a chest stays reserved for whoever paid
+                       //   for it. 0 restores first-come-first-served.
   heroHold:   860,     // with nothing to fight, heroes hold this line
   mobHold:    1080,    // ...and monsters hold this one. Closer together
                        //   than they were: 420px apart meant the two
@@ -750,10 +752,16 @@ function baseEnt(name, side, look, adv){
 }
 function retire(e){ e.alive=false; e.fading=V.t; }
 
+/* A chest used to go to whoever happened to be standing nearest, which
+   meant the viewer who spent the points usually watched someone else open
+   it. It is theirs now - for a while. The reservation has to expire, or a
+   chest bought by someone who then leaves chat sits on the field forever. */
 function dropLoot(by){
+  const owner = by ? String(by).toLowerCase() : null;
   V.props.push({ id:nid++, x:rnd(T.heroHold-200, T.mobHold+200),
-    y:rnd(T.stripTop,T.stripBot), bob:Math.random()*6, alive:true });
-  log([{t:"A CHEST",c:"c-l"},{t:" dropped"+(by?" — "+by:""),c:"c-v"}]);
+    y:rnd(T.stripTop,T.stripBot), bob:Math.random()*6, alive:true,
+    owner, ownerName: by || null, freeAt: owner ? V.t + T.lootHold : 0 });
+  log([{t:"A CHEST",c:"c-l"},{t:" dropped"+(by?" for "+by:""),c:"c-v"}]);
 }
 
 function spawnBoss(by){
@@ -1431,6 +1439,19 @@ function lineGoal(e, foe){
              y: T.stripTop + 7 + (row/(ring-1))*band };
   }
 
+  /* Walk to your own chest. Without this, reserving one only means nobody
+     else may take it - the owner still has to blunder into it by accident,
+     which is worse than the free-for-all it replaced. Drops the foe for a
+     moment, which is the point: everyone can see whose chest it is. */
+  if (e.side===1 && T.lootHold > 0){
+    for (const p of V.props){
+      if (!p.alive || !p.owner) continue;
+      if (p.owner !== (e.name||"").toLowerCase()) continue;
+      if (V.t > p.freeAt) continue;
+      return {x:p.x, y:p.y};
+    }
+  }
+
   const mates=sideMates(e);
   const n=Math.max(1, mates.length);
   let i=0;
@@ -1682,7 +1703,9 @@ function step(dt){
 
     /* chests */
     if (e.side===1) for (const p of V.props){
-      if (p.alive && Math.abs(p.x-e.x)<28 && Math.abs(p.y-e.y)<28){
+      const mine = !p.owner || p.owner===(e.name||"").toLowerCase() ||
+                   V.t > p.freeAt;
+      if (p.alive && mine && Math.abs(p.x-e.x)<28 && Math.abs(p.y-e.y)<28){
         p.alive=false;
         const up=Save.xp(e.name,4); e.level = e.rec?e.rec.level:e.level;
         e.maxHp += 8; e.hp = e.maxHp; e.atk += 1;
@@ -2855,6 +2878,14 @@ function render(){
     cx.globalAlpha=.22; px(cx,-14,-11,28,16,"#ffd166"); cx.globalAlpha=1;
     px(cx,-10,-15,20,13,"#6b4a1c"); px(cx,-10,-9,20,3,"#ffd166");
     px(cx,-2,-12,4,7,"#ffd166"); cx.restore();
+    if (p.owner && V.t <= p.freeAt){
+      cx.save();
+      cx.font='700 13px "Silkscreen",monospace';
+      cx.textAlign="center"; cx.lineWidth=4; cx.strokeStyle="rgba(0,0,0,.75)";
+      cx.strokeText(p.ownerName, p.x, p.y-30);
+      cx.fillStyle="#ffd166"; cx.fillText(p.ownerName, p.x, p.y-30);
+      cx.restore();
+    }
   }
   const order = V.ents.slice().sort((a,b)=> (a.isBoss?-1:0)-(b.isBoss?-1:0) || a.y-b.y);
   for (const e of order){
