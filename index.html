@@ -29,7 +29,15 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;
 #field{position:absolute;top:0;left:0}
 .panel{background:var(--panel);border:2px solid var(--edge);border-radius:4px}
 
-#feed{position:absolute;left:26px;bottom:206px;width:420px;padding:9px 12px 10px}
+/* The log is anchored at the bottom and grows upward as lines arrive, so
+   its height is not knowable from the stylesheet: seven rows plus padding
+   come to ~202px, which climbed 36px into a header hand-placed at 372px
+   and printed BATTLE LOG across HEROES/MONSTERS on a live stream. Neither
+   panel is positioned by hand any more - they are one bottom-anchored
+   column, so no row count can make them collide. */
+#sidecol{position:absolute;left:26px;bottom:206px;width:420px;
+  display:flex;flex-direction:column;align-items:stretch;gap:10px}
+#feed{padding:9px 12px 10px}
 #feed .cap{font-size:9px;letter-spacing:.16em;color:var(--dim);margin-bottom:5px}
 #feed .row{font-family:var(--log);font-size:21px;line-height:1.15;
   text-shadow:0 2px 5px rgba(0,0,0,.9);white-space:nowrap;overflow:hidden;
@@ -40,7 +48,7 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;
 .c-t{color:var(--teal)} .c-h{color:var(--horde)}
 .c-b{color:var(--boss)} .c-l{color:var(--loot)} .c-v{color:var(--dim)}
 
-#hdr{position:absolute;left:26px;bottom:372px;padding:8px 12px 9px;width:420px}
+#hdr{padding:8px 12px 9px}
 #hdr .top{display:flex;align-items:center;gap:10px}
 #hdr .ttl{font-size:11px;letter-spacing:.12em;color:var(--teal);flex:1}
 #hdr .st{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
@@ -112,6 +120,7 @@ button:hover{filter:brightness(1.12)}
 <div id="stage">
   <canvas id="field" width="1920" height="1080"></canvas>
 
+  <div id="sidecol">
   <div id="hdr" class="panel">
     <div class="top">
       <span class="ttl" id="ttl">THE JESTER'S VILLAGE</span>
@@ -128,6 +137,7 @@ button:hover{filter:brightness(1.12)}
   <div id="feed" class="panel">
     <div class="cap">BATTLE LOG</div>
     <div id="rows"></div>
+  </div>
   </div>
 
   <div id="bossbar" class="panel">
