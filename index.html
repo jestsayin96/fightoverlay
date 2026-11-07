@@ -302,6 +302,11 @@ const T = {
                        //   level-15 regulars hits three times as hard as
                        //   the level-1 crowd every test here was built
                        //   from. The first real stream wiped it instantly.
+  mobLvlScale:0.045,   // how hard ordinary monsters track the village's
+                       //   level. The steering corrects on top of this;
+                       //   this just stops it starting from the wrong end.
+  megaLvlGap: 30,      // levels above the strongest real viewer present
+  megaLvlHp:  0.030,   // health added per level of that gap
   megaAtkPow: 0.055,   // its damage rises with the crowd's average level
                        //   too, or it stops threatening the people who
                        //   have been playing longest.
@@ -615,6 +620,40 @@ const mobTarget = ()=> Math.round(clamp(
    rather than making any single hit lethal. */
 const crowdMul = ()=> 1 + T.crowdScale * Math.max(0, heroes().length - 1);
 
+/* The broadcaster and the chat bots are in the village every second of
+   every stream, so their levels only ever climb - and anything that reads
+   "the highest level present" would end up reading them, for ever, no
+   matter who else turned up. They borrow the top real viewer's level
+   instead: present and fighting, but never the yardstick.
+
+   Everything that scales to the village - monsters, the Mega Boss - is
+   measured against this, so difficulty tracks the people actually playing
+   rather than whoever has been idling in chat the longest. */
+const ALWAYS_ON = /^(streamelements|nightbot|moobot|streamlabs|fossabot|sery_bot|wizebot|botrixoficial|own3d|soundalerts|pokemoncommunitygame|kofistreambot)$/i;
+function isAlwaysOn(name){
+  const n=(name||"").toLowerCase();
+  return ALWAYS_ON.test(n) || n===(CFG.channel||"").toLowerCase();
+}
+/* Highest level among heroes who are neither the broadcaster nor a bot. */
+function viewerTopLevel(){
+  let top=0;
+  for (const h of heroes())
+    if (!isAlwaysOn(h.name)) top=Math.max(top, h.level||1);
+  return top;                              // 0 when nobody else is here
+}
+/* What a hero counts as for scaling purposes. */
+function tierOf(h){
+  if (!isAlwaysOn(h.name)) return h.level||1;
+  const top=viewerTopLevel();
+  return top>0 ? top : (h.level||1);       // alone? be your own yardstick
+}
+/* The level the village is fought at. */
+function villageLevel(){
+  const hs=heroes();
+  if (!hs.length) return 1;
+  return Math.max(1, ...hs.map(tierOf));
+}
+
 /* Monster toughness is steered, not fixed. Hero damage swings wildly with
    how many viewers are watching and with which abilities their names happen
    to roll, and the fight is bistable: survivors accumulate, dilute the
@@ -736,9 +775,17 @@ function spawnMonster(name, opts){
   const m = baseEnt(label, -1, mobLook(label), adv);
   m.kindName = kind;
   m.spriteKey = "mob_" + MOB_SPRITES[hash(label) % MOB_SPRITES.length];
-  const crowd = crowdMul() * V.mobTough;
+  /* Monsters track the village's level as well as its size. Without this
+     a room of level-30 regulars mows down the same goblin a level-1 room
+     struggles with, and the difficulty steering has to claw back the whole
+     difference on its own - which is what pinned it at its ceiling. */
+  const lvl   = villageLevel();
+  const lvlMul= 1 + T.mobLvlScale * (lvl - 1);
+  const crowd = crowdMul() * V.mobTough * lvlMul;
   m.maxHp = Math.round((T.mobHp + (opts.tough||0)) * crowd); m.hp = m.maxHp;
-  m.atk = T.mobAtk * Math.min(crowdMul(), T.crowdAtkCap); m.rate = 1.2;
+  m.atk = T.mobAtk * Math.min(crowdMul(), T.crowdAtkCap) * lvlMul;
+  m.rate = 1.2;
+  m.level = lvl;
   m.ab   = MOB_ABILITIES[hash(label+"spell") % MOB_ABILITIES.length];
   m.abcd = rnd(0.5, m.ab.cd*0.5);
   m.named = !!name;
@@ -818,14 +865,19 @@ function spawnMegaBoss(by){
   B.spriteKey = "boss_" + BOSS_SPRITES[hash(kind) % BOSS_SPRITES.length];
   B.x = T.mobGate + 90;
   B.y = (T.stripTop + T.stripBot)/2;
-  /* Sized against what the village can actually do, measured from its
-     own attack stats - which already fold in level, class and every chest
-     ever opened - rather than from how many people are standing there. */
+  /* It fights at thirty levels above the strongest real viewer present, so
+     it is always out of the village's weight class however far they have
+     levelled - and its health is sized from what the village can actually
+     deal, summed from their real attack stats rather than a headcount.
+     A headcount is what let a room of regulars wipe it on sight. */
   const hs    = heroes();
   const power = hs.reduce((a,h)=>a+(h.atk||8), 0) || 8*pop;
-  const avgLv = hs.length ? hs.reduce((a,h)=>a+(h.level||1),0)/hs.length : 1;
-  B.maxHp = T.megaBase + T.megaHpPow*power; B.hp = B.maxHp;
-  B.atk = T.megaAtk * (1 + T.megaAtkPow*(avgLv-1)); B.rate = 1.5;
+  B.level = villageLevel() + T.megaLvlGap;
+  const gap = B.level;
+  B.maxHp = T.megaBase + T.megaHpPow*power*(1 + T.megaLvlHp*(gap-1));
+  B.hp = B.maxHp;
+  B.atk = T.megaAtk * (1 + T.megaAtkPow*(gap-1));
+  B.rate = 1.5;
   B.until = V.t + T.megaLife;
   V.ents.push(B); V.boss = B;
   V.shake = Math.max(V.shake, 0.9);
