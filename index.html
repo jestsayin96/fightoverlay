@@ -260,6 +260,10 @@ const T = {
   mobGate:    1970,    // monsters walk on from the right...
   twoGates:   0,       // measured and rejected - see below
   bandOnly:   1,       // 0 lets fights start outside the band again
+  stickyPairs:1,       // keep a pair together instead of re-pairing by
+                       //   nearest every tick
+  stickyRange:260,     // px; past this a sticky pair is dissolved
+  pairCols:   1,       // give each pair its own column across the band
   holdSpread: 0,       // measured and rejected - see below
   mobGateL:   -90,     // ...and, half the time, from the left. Monsters
                        //   used to arrive only from the right while heroes
@@ -1052,12 +1056,38 @@ function assignFoes(){
   const hs = side(1).sort((a,b)=>b.x-a.x);     // front-most hero first
   const ms = side(-1);
   const taken = new Set();
+
+  /* Sticky pairs, and the reason this is worth retrying: it was tried once
+     and failed badly - partners averaged 944px apart against a 64px engage
+     range, and the field spent 83% of its time marching. But that was
+     before march-in-first. Pairs could form across the whole frame then;
+     now a foe is only valid once it is inside the band, so two fighters
+     who pair up are already near each other and the lock costs nothing.
+
+     Stickiness is what makes a per-pair column possible at all: re-pairing
+     by nearest every tick re-targeted the column faster than anyone could
+     walk to it, which is what defeated every column scheme recorded in
+     lineGoal. A pair that survives can be sent somewhere. */
+  if (T.stickyPairs){
+    for (const h of hs){
+      if (h.foeId == null) continue;
+      const p = ms.find(m => m.id === h.foeId);
+      if (!p || taken.has(p.id) || p.foeId !== h.id) continue;
+      if (Math.abs(p.x - h.x) > T.stickyRange) continue;   // drifted apart
+      taken.add(p.id);
+    }
+  }
   /* Re-paired by distance every tick on purpose. Making pairs sticky
      sounded better - two fighters locking on each other - but it froze
      cross-frame pairings in place: paired fighters averaged 944px apart
      against a 64px engage range, and the field spent 83% of its time
      marching and 4.5% fighting. Nearest-each-tick keeps duels tight. */
   for (const h of hs){
+    /* already locked on someone this tick: leave it alone */
+    if (T.stickyPairs && h.foeId != null){
+      const p = ms.find(m => m.id === h.foeId);
+      if (p && taken.has(p.id) && p.foeId === h.id) continue;
+    }
     let best=null, bd=Infinity;
     for (const m of ms){
       if (taken.has(m.id)) continue;
@@ -1068,6 +1098,27 @@ function assignFoes(){
     else h.foeId = null;
   }
   for (const m of ms) if (!taken.has(m.id)) m.foeId = null;
+
+  /* Give each surviving pair its own column, by rank rather than by where
+     it happens to be standing. Snapping to the NEAREST column was the old
+     behaviour and it cannot break up a knot: every pair in a cluster is
+     nearest to the same column. Ranking by midpoint keeps neighbours as
+     neighbours, so nobody crosses the frame to reach their slot. */
+  if (T.pairCols){
+    const pairs=[];
+    for (const h of hs){
+      if (h.foeId == null) continue;
+      const m = ms.find(o => o.id === h.foeId);
+      if (m) pairs.push({h, m, mid:(h.x+m.x)/2});
+    }
+    pairs.sort((a,b)=>a.mid-b.mid);
+    const n = pairs.length;
+    for (let i=0;i<n;i++){
+      const frac = n===1 ? 0.5 : i/(n-1);
+      const col  = T.fightLeft + 90 + frac*((T.fightRight-90)-(T.fightLeft+90));
+      pairs[i].h.col = col; pairs[i].m.col = col;
+    }
+  }
 }
 
 function nearestFoe(e){
@@ -1322,11 +1373,20 @@ function lineGoal(e, foe){
        denser a cluster the more it attracts - positive feedback no
        hold position can undo. Spreading the PAIRING, not the standing
        positions, is the thing nobody has tried. */
-    const cols = 11;
-    const w    = (T.fightRight - T.fightLeft) / (cols - 1);
-    const mid  = (e.x + foe.x) / 2;
-    const col  = clamp(Math.round((mid - T.fightLeft) / w), 0, cols - 1);
-    const meet = T.fightLeft + col * w;
+    /* The pair's own column when assignFoes gave it one, otherwise the
+       nearest of eleven. Nearest cannot break up a knot - every pair in a
+       cluster is nearest to the same column - but it was all that worked
+       while pairs re-formed every tick. */
+    let meet;
+    if (T.pairCols && e.col != null && foe.col != null && e.col === foe.col){
+      meet = e.col;
+    } else {
+      const cols = 11;
+      const w    = (T.fightRight - T.fightLeft) / (cols - 1);
+      const mid  = (e.x + foe.x) / 2;
+      const col  = clamp(Math.round((mid - T.fightLeft) / w), 0, cols - 1);
+      meet = T.fightLeft + col * w;
+    }
     return { x: meet - e.adv*(T.engage*0.5),
              y: T.stripTop + 9 + (slot/(lanes-1)) * band };
   }
