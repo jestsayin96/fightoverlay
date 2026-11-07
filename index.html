@@ -412,7 +412,7 @@ function mobLook(name){
 /* ==================================================================
    WORLD
 ================================================================== */
-const V = { ents:[], props:[], boss:null, t:0, slain:0, lost:0,
+const V = { ents:[], props:[], boss:null, mobQ:[], t:0, slain:0, lost:0,
             idleT:0, mobSeq:0, fx:[], shots:[], clouds:[], shake:0,
             bombs:[], balls:[], cue:[],
             /* steered difficulty: see steerDifficulty */
@@ -518,9 +518,23 @@ function joinHero(name, chatColor){
 }
 
 /* ---------- monsters: follows, redeems, and dead air ---------- */
+/* Channel points leave the viewer's balance before the overlay sees the
+   redemption and Twitch will not refund them, so a monster that arrives
+   with the field full waits for a gap instead of evaporating. Only named
+   arrivals queue - a redemption or a follow. The ambient spawner passes
+   no name and is already sized to the crowd, so queueing those would just
+   build a backlog of monsters nobody asked for. */
+const MOB_Q_MAX = 40;
 function spawnMonster(name, opts){
   opts = opts || {};
-  if (mobs().length >= T.maxMobs) return null;
+  if (mobs().length >= T.maxMobs){
+    if (name && !opts._q && V.mobQ.length < MOB_Q_MAX){
+      V.mobQ.push({name, opts});
+      log([{t:name,c:"c-h"},
+           {t:"'s monster is waiting for a gap (#"+V.mobQ.length+")",c:"c-v"}]);
+    }
+    return null;
+  }
   /* A flavour name is only flavour while it is unique. The plate layout
      already stops two names overlapping, so a duplicate does not look like
      a collision - it looks like the same monster drawn twice, which is
@@ -1055,7 +1069,14 @@ function step(dt){
       /* fill toward the target rather than one at a time: at a busy
          crowd the far line dies faster than a single arrival replaces it */
       const want = Math.min(mobTarget() - mobs().length, T.spawnBurst);
-      for (let i=0; i<want; i++) spawnMonster(null);
+      for (let i=0; i<want; i++){
+        /* someone paid for these, so they take the gap ahead of a
+           wanderer the overlay invented. _q stops a drained entry from
+           queueing itself again if the cap moved under us. */
+        const q = V.mobQ.shift();
+        if (q) spawnMonster(q.name, Object.assign({}, q.opts, {_q:true}));
+        else   spawnMonster(null);
+      }
     }
   }
 
@@ -2640,6 +2661,7 @@ function setScene(mode){
   if (SCENE==="lounge"){
     for (const e of V.ents) if (e.side===-1 && e.alive){ e.alive=false; e.fading=V.t; }
     if (V.boss){ V.boss.alive=false; V.boss.fading=V.t; V.boss=null; }
+    V.mobQ.length=0;
     toast("HANGOUT", "var(--teal)");
     log([{t:"Hangout",c:"c-t"},{t:" — the horde holds. Chat owns the floor.",c:"c-v"}]);
   } else {
@@ -3432,7 +3454,8 @@ $("b-go").onclick=()=>{
 };
 $("b-demo").onclick=startDemo;
 $("b-wipe").onclick=()=>{ Save.wipe(); V.ents.length=0; V.props.length=0;
-  V.boss=null; V.slain=0; stat("Save wiped. Everyone starts at level 1."); };
+  V.boss=null; V.mobQ.length=0; V.slain=0;
+  stat("Save wiped. Everyone starts at level 1."); };
 
 addEventListener("keydown",e=>{
   if($("setup").classList.contains("on") && e.key!=="Escape") return;
