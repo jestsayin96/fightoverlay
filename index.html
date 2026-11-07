@@ -260,7 +260,7 @@ const T = {
   mobGate:    1970,    // monsters walk on from the right...
   twoGates:   0,       // measured and rejected - see below
   bandOnly:   1,       // 0 lets fights start outside the band again
-  stickyPairs:1,       // keep a pair together instead of re-pairing by
+  stickyPairs:0,       // keep a pair together instead of re-pairing by
                        //   nearest every tick
   stickyRange:260,     // px; past this a sticky pair is dissolved
   pairCols:   0,       // give each pair its own column across the band
@@ -1369,10 +1369,36 @@ function lineGoal(e, foe){
        nothing on its own, and on top of the band rule it makes
        collisions worse rather than better. Both attempts are above.
 
+       STICKY PAIRS AND A COLUMN PER PAIR, measured and REJECTED - and a
+       lesson about measuring that cost more than the feature.
+
+       Both looked like wins. Sticky pairs appeared to cut collisions 24%
+       AND raise fighting time 19%, the first thing to improve both. A
+       column per pair cut collisions 68%. Both were shipped or nearly
+       shipped on those numbers.
+
+       Both numbers were wrong, because every window used to produce them
+       started before the difficulty controller had settled. steerDifficulty
+       hunts for about 40 seconds at the start of a run - that is its job -
+       and it was still moving through every measurement. Letting it settle
+       first, then counting over a clean window:
+
+                            kills/40s   monster life   clashes/char
+         shipped               17.0        10.9s          1.96
+         sticky                 7.5        13.1s          1.99
+         sticky, ceiling 12     8.5        13.5s          2.48
+
+       Sticky pairs HALVES the kill rate and gives no collision benefit at
+       all. Raising the toughness ceiling does not rescue it. Reverted.
+
+       The rule this bought: measure after the controller settles, never
+       through it. Any A/B on this overlay that runs for less than about a
+       minute is measuring the controller, not the change.
+
        Still unsolved: the knot itself. Pairs form by nearest foe, so the
-       denser a cluster the more it attracts - positive feedback no
-       hold position can undo. Spreading the PAIRING, not the standing
-       positions, is the thing nobody has tried. */
+       denser a cluster the more it attracts - positive feedback no hold
+       position can undo. Both attempts at spreading the PAIRING rather
+       than the positions are above; neither survived an honest window. */
     /* The pair's own column when assignFoes gave it one, otherwise the
        nearest of eleven. Nearest cannot break up a knot - every pair in a
        cluster is nearest to the same column - but it was all that worked
