@@ -235,8 +235,13 @@ const T = {
   megaLife:   60,      // seconds before it leaves of its own accord. It is
                        //   built to beat the village, so the fight needs a
                        //   bell, not an outcome.
-  megaHp:     1400,    // per hero present
-  megaAtk:    64,
+  megaBase:   1500,    // flat health, plus a little per hero. Scaling it
+  megaHp:     220,     //   purely per-hero made a BIGGER village worse off
+                       //   - every arrival added more boss health than
+                       //   damage, so four viewers nearly killed it while
+                       //   ten left a third standing. A busy night should
+                       //   be the best shot at it, not the worst.
+  megaAtk:    44,
   logShow:    15,      // seconds the battle log stays up when asked for
   heroHold:   860,     // with nothing to fight, heroes hold this line
   mobHold:    1080,    // ...and monsters hold this one. Closer together
@@ -672,7 +677,7 @@ function spawnMegaBoss(by){
   B.spriteKey = "boss_" + BOSS_SPRITES[hash(kind) % BOSS_SPRITES.length];
   B.x = T.mobGate + 90;
   B.y = (T.stripTop + T.stripBot)/2;
-  B.maxHp = T.megaHp*pop; B.hp = B.maxHp;
+  B.maxHp = T.megaBase + T.megaHp*pop; B.hp = B.maxHp;
   B.atk = T.megaAtk; B.rate = 1.5;
   B.until = V.t + T.megaLife;
   V.ents.push(B); V.boss = B;
