@@ -292,12 +292,19 @@ const T = {
   megaLife:   60,      // seconds before it leaves of its own accord. It is
                        //   built to beat the village, so the fight needs a
                        //   bell, not an outcome.
-  megaBase:   1500,    // flat health, plus a little per hero. Scaling it
-  megaHp:     220,     //   purely per-hero made a BIGGER village worse off
-                       //   - every arrival added more boss health than
-                       //   damage, so four viewers nearly killed it while
-                       //   ten left a third standing. A busy night should
-                       //   be the best shot at it, not the worst.
+  megaBase:   2200,    // flat health, plus an amount per point of the
+  megaHpPow:  62,      //   village's ACTUAL attack power - not per hero.
+                       //   Scaling by headcount was wrong twice over.
+                       //   Per-hero alone made a bigger village worse off
+                       //   (every arrival added more boss health than
+                       //   damage). And headcount ignores level entirely:
+                       //   a hero does 6 + 1.6*level damage, so a room of
+                       //   level-15 regulars hits three times as hard as
+                       //   the level-1 crowd every test here was built
+                       //   from. The first real stream wiped it instantly.
+  megaAtkPow: 0.055,   // its damage rises with the crowd's average level
+                       //   too, or it stops threatening the people who
+                       //   have been playing longest.
   megaAtk:    44,
   logShow:    15,      // seconds the battle log stays up when asked for
   lootHold:   25,      // seconds a chest stays reserved for whoever paid
@@ -811,8 +818,14 @@ function spawnMegaBoss(by){
   B.spriteKey = "boss_" + BOSS_SPRITES[hash(kind) % BOSS_SPRITES.length];
   B.x = T.mobGate + 90;
   B.y = (T.stripTop + T.stripBot)/2;
-  B.maxHp = T.megaBase + T.megaHp*pop; B.hp = B.maxHp;
-  B.atk = T.megaAtk; B.rate = 1.5;
+  /* Sized against what the village can actually do, measured from its
+     own attack stats - which already fold in level, class and every chest
+     ever opened - rather than from how many people are standing there. */
+  const hs    = heroes();
+  const power = hs.reduce((a,h)=>a+(h.atk||8), 0) || 8*pop;
+  const avgLv = hs.length ? hs.reduce((a,h)=>a+(h.level||1),0)/hs.length : 1;
+  B.maxHp = T.megaBase + T.megaHpPow*power; B.hp = B.maxHp;
+  B.atk = T.megaAtk * (1 + T.megaAtkPow*(avgLv-1)); B.rate = 1.5;
   B.until = V.t + T.megaLife;
   V.ents.push(B); V.boss = B;
   V.shake = Math.max(V.shake, 0.9);
