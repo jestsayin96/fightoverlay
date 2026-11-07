@@ -259,6 +259,8 @@ const T = {
   heroGate:   -50,     // heroes walk on from here
   mobGate:    1970,    // monsters walk on from the right...
   twoGates:   1,       // 0 restores the single right-hand gate
+  bandOnly:   1,       // 0 lets fights start outside the band again
+  holdSpread: 700,     // how wide each side fans out along its hold line
   mobGateL:   -90,     // ...and, half the time, from the left. Monsters
                        //   used to arrive only from the right while heroes
                        //   joined once and stayed, so a queue of them was
@@ -1095,14 +1097,30 @@ function nearestFoe(e){
   if (V.boss && V.boss.isMega && V.boss.alive && e.side===1 && e.state!=="down")
     return V.boss;
 
+  /* Nothing used to stop a fight starting outside the fight band, so where
+     a duel happened was decided by wherever the two sides first touched -
+     which is wherever the monsters walked in. That put characters at
+     x=2016 on a 1920 frame, fighting off the edge of the screen, and when
+     monsters were given a second gate it simply moved the pile-up to the
+     other edge instead of spreading it.
+
+     March in first, then you are a target. The rule has to sit on the
+     TARGET, not the seeker: gating the seeker made a hero inside the band
+     chase a monster outside it, lose the target on arrival, and walk back -
+     oscillation instead of fighting, and kills fell from 18 to 3. Someone
+     still walking in simply is not a valid foe yet, so everyone waits at
+     their hold inside the band and meets there. */
+  const inBand = o => !T.bandOnly || o.isBoss ||
+                      (o.x >= T.fightLeft && o.x <= T.fightRight);
+
   if (e.foeId != null){
     const p = V.ents.find(o=>o.id===e.foeId);
-    if (p && p.alive && p.state!=="down" && p.side!==e.side) return p;
+    if (p && p.alive && p.state!=="down" && p.side!==e.side && inBand(p)) return p;
     e.foeId = null;
   }
   let best=null, bd=Infinity;
   for (const o of V.ents){
-    if (!o.alive || o.side===e.side || o.state==="down") continue;
+    if (!o.alive || o.side===e.side || o.state==="down" || !inBand(o)) continue;
     const d = Math.abs(o.x - e.x);
     if (d < bd){ bd=d; best=o; }
   }
@@ -1306,8 +1324,7 @@ function lineGoal(e, foe){
   const files=Math.max(1, Math.ceil(n/2));
   const y=lane===0 ? T.stripTop+26 : T.stripBot-16;
   const back=lane===0 ? 0 : 16;
-  const hold = e.side===1 ? T.heroHold
-             : (e.adv===1 ? T.fightLeft + 120 : T.mobHold);
+  const hold = holdLine(e);
   const desired = foe ? foe.x - e.adv*T.frontGap : hold;
   const lead=leadingX(e.side, e.adv);
   let nose = lead + e.adv*40;
@@ -1320,6 +1337,30 @@ function lineGoal(e, foe){
   const tailRoom = Math.max(48, e.adv===1 ? nose-tailLimit : tailLimit-nose);
   const gap = files<=1 ? 0 : Math.min(T.fileGap, tailRoom / Math.max(1, files-1));
   return {x: nose - e.adv*(file*gap + back), y};
+}
+
+/* Everyone with no valid foe went to a single x per side, and that one
+   number was the seed of the knot: heroes stacked on it, monsters walked
+   in and met them there, and every nameplate landed on top of every other
+   while two thirds of the frame stayed empty.
+
+   Spreading this was tried before and measured as useless, because without
+   the band rule nobody was ever AT their hold - anyone with a foe ignores
+   it, and they had a foe almost always. With march-in-first in place they
+   do wait here, so where "here" is now decides where the fight happens.
+
+   A hero's place comes from their name, so a viewer stands in the same
+   spot every stream. A monster's comes from its id, and from which gate it
+   came in by, so a wave does not stack on one point either. */
+function holdLine(e){
+  const base = e.side===1 ? T.heroHold
+             : (e.adv===1 ? T.fightLeft + 160 : T.mobHold);
+  if (!T.holdSpread) return base;
+  const k = e.side===1 ? hash((e.name||"").toLowerCase())
+                       : Math.imul(e.id, 2654435761);
+  const frac = ((k>>>0) % 997) / 997;
+  return clamp(base + (frac - 0.5) * T.holdSpread,
+               T.fightLeft + 60, T.fightRight - 60);
 }
 
 function unpile(e, dt){
