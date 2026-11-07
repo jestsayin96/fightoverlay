@@ -1,0 +1,52 @@
+Copyright (c) 2026 Jose Luis Estrada ("Mr. E", JestSayin96).
+All rights reserved.
+
+This software and its artwork are NOT open source and NOT public domain.
+Being readable does not make them free to take: the overlay runs in a
+browser, so its source is necessarily served to anyone who loads it, and
+this repository is public so that GitHub Pages can host it. Neither of
+those is a grant of rights.
+
+WHAT YOU MAY DO
+
+  - Read the source, and learn from it.
+  - Run the overlay as it is hosted by the copyright holder.
+  - Fork this repository on GitHub for the purpose of proposing a change
+    back to it.
+
+WHAT YOU MAY NOT DO without prior written permission from the copyright
+holder:
+
+  - Sell, license, rent or otherwise charge for this work, in whole or in
+    part, modified or unmodified. This includes bundling it into a paid
+    product, a paid Twitch or OBS package, a template pack, an asset pack,
+    a course, or a subscription.
+  - Redistribute it, including re-uploading it to another repository,
+    marketplace, storefront, asset site or file host.
+  - Host your own public copy of it, whether or not you charge for it.
+  - Use its artwork anywhere outside this project. Every character sprite
+    and animation in sprites/ was drawn for this project and is original
+    work; none of it is stock, public domain or CC0, and the absence of a
+    third-party credit in LICENSES.md is deliberate.
+  - Remove or alter this notice, the copyright headers in the source, or
+    the attribution in the overlay itself.
+
+NO TRADEMARK LICENSE
+
+Nothing here grants any right to the names "Jester's Village",
+"JestSayin96", "The Jester's Court", or any associated logo or branding.
+
+RESERVATION
+
+The copyright holder intends to offer this work commercially and reserves
+every right not expressly granted above. Permission for any use outside
+the list above must be obtained in writing first; ask, and it may well be
+granted.
+
+NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.

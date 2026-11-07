@@ -86,3 +86,19 @@ Character size is the `depth()` function just below the render header.
 ## Keys (for testing outside OBS)
 
 `S` setup · `D` demo · `B` boss · `M` monster · `H` hero · `L` loot
+
+## License
+
+Copyright (c) 2026 Jose Luis Estrada (JestSayin96). **All rights reserved** -
+see [LICENSE](LICENSE).
+
+This repository is public so GitHub Pages can serve it, and a browser overlay
+has to serve its own source in order to run. Neither of those makes it free to
+take. You may read it, learn from it, and run the hosted copy. You may not sell
+it, redistribute it, host your own public copy, or use its artwork elsewhere
+without written permission.
+
+Every character sprite in `sprites/` is original work drawn for this project -
+no stock, no CC0, no asset packs. See [LICENSES.md](LICENSES.md).
+
+Want to use some of it? Ask. The answer is often yes.
