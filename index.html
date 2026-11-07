@@ -160,7 +160,7 @@ button:hover{filter:brightness(1.12)}
     <p class="sub">Chat avatars need nothing but your channel name. Loyalty points,
       duels, slots, royale and basketball all run from chat. Follows and channel
       points below are optional.</p>
-    <p class="sub cmds">!dance !hug name !attack name !bomb !explode · !duel name 10 then !accept · !slots 10 · !boss · !royale !join · !basketball !shoot 5 · !points !shop !buy crown · !leaderboard · !avatar mage · !mass dance (mods) · !lounge !war</p>
+    <p class="sub cmds">!dance !hug name !attack name !bomb !explode · !vduel name 10 then !accept · !vslots 10 · !boss · !royale !join · !basketball !shoot 5 · !vpoints !vshop !vbuy crown · !vtop · !avatar mage · !mass dance (mods) · !lounge !war</p>
 
     <label for="f-chan">TWITCH CHANNEL</label>
     <input id="f-chan" placeholder="JestSayin96" autocomplete="off" spellcheck="false">
@@ -190,7 +190,7 @@ button:hover{filter:brightness(1.12)}
     <div id="status"></div>
   </div>
 </div>
-<div id="hint">S setup · D demo · G hangout · B boss · R royale · K hoop</div>
+<div id="hint"></div>
 
 <script>
 "use strict";
@@ -227,11 +227,6 @@ const T = {
   mobHold:    1080,    // ...and monsters hold this one. Closer together
                        //   than they were: 420px apart meant the two
                        //   idle ranks stared at each other out of reach
-  holdSpread: 0,       // how wide each side fans out along its hold line.
-                       //   0 = everyone stacks on one x, which is what put
-                       //   a whole live stream's cast in the right third
-                       //   of the frame. Swept below; 0 keeps the old
-                       //   behaviour for an honest A/B.
   fightLeft:  380,     // duels are held inside this band of the frame
   fightRight: 1560,    //   so the fight can never drift off to an edge
   bossHold:   1420,    // a boss plants itself here and waits
@@ -1052,11 +1047,39 @@ function lineGoal(e, foe){
        re-pairing every 0.4s re-targets the goal faster than anyone can
        arrive. Marching went 33.6% -> ~49% at EVERY setting.
 
-       So spreading the fight is not something to fix at the fight. The
-       crowd balls up because both hold lines sit in the middle of the
-       frame, 220px apart, and that is where everyone meets - the next
-       thing to try is spreading the formation itself, which costs no
-       walking because it is where they already stand. */
+       So spreading the fight is not something to fix at the fight.
+
+       Two further attempts, both measured, both rejected.
+
+       SPREADING THE HOLD FORMATION - which is what this comment used to
+       recommend. Each character got its own x on its side's hold line
+       rather than all stacking on one. It did nothing, because anyone
+       with a foe ignores the hold line and they are fighting 64% of the
+       time. Spread got WORSE and plate clashes rose:
+
+         holdSpread   band   clashes  fighting    (8 viewers, 3 seeds)
+            0        43.3%     49.4     63.7%
+          360        35.3%     53.5     60.8%
+          840        40.6%     59.8     71.8%
+
+       MOVING THE WHOLE BAND LEFT. Measuring WHERE the cast sits, rather
+       than how wide it is, finally named the cause: monsters enter at
+       x=1970 and the spawner tops up continuously, so a queue of them is
+       always walking in on the right, while heroes join once and stay.
+       The cast sits +351px right of centre with ~1 character off the
+       right edge of a 1920 frame at any moment. Shifting the band pays
+       the usual toll:
+
+         shift    centre   clashes  fighting  killed  (3/8/16 viewers)
+            0     +351px     65.5     54.0%    15.2
+         -240     +326px     70.8     55.0%    13.7
+         -480     +196px     55.0     48.1%    13.8
+
+       THE UNTRIED IDEA, and the only one left that treats the cause
+       rather than compensating for it: monsters should arrive from BOTH
+       gates, not only the right. That removes the inflow bias and costs
+       no fighting time. It is not a constant to tune - side drives
+       movement direction throughout, so it is real work. */
     const cols = 11;
     const w    = (T.fightRight - T.fightLeft) / (cols - 1);
     const mid  = (e.x + foe.x) / 2;
@@ -1074,7 +1097,7 @@ function lineGoal(e, foe){
   const files=Math.max(1, Math.ceil(n/2));
   const y=lane===0 ? T.stripTop+26 : T.stripBot-16;
   const back=lane===0 ? 0 : 16;
-  const hold=holdLine(e);
+  const hold=e.side===1 ? T.heroHold : T.mobHold;
   const desired = foe ? foe.x - e.side*T.frontGap : hold;
   const lead=leadingX(e.side);
   let nose = lead + e.side*40;
@@ -1085,27 +1108,6 @@ function lineGoal(e, foe){
   const tailRoom = Math.max(48, e.side===1 ? nose-tailLimit : tailLimit-nose);
   const gap = files<=1 ? 0 : Math.min(T.fileGap, tailRoom / Math.max(1, files-1));
   return {x: nose - e.side*(file*gap + back), y};
-}
-
-/* Both sides used a single hold x, so with nothing to fight everyone
-   stacked on one vertical line and every duel then started wherever the
-   monsters happened to walk in - on a live stream that was the right
-   third of the frame, with nameplates piling onto each other because
-   there was nowhere else for them to go.
-
-   Each character gets its own place on the line instead. A hero's spot
-   comes from their name, so a viewer stands in the same place every
-   stream; a monster's comes from its id. This costs no walking: it is
-   where they were already standing, just spread out. The column-grid
-   attempts in HANDOFF all failed because they made characters walk to a
-   slot INSTEAD of fighting. */
-function holdLine(e){
-  const base = e.side===1 ? T.heroHold : T.mobHold;
-  if (!T.holdSpread) return base;
-  const k = e.side===1 ? hash((e.name||"").toLowerCase()) : Math.imul(e.id,2654435761);
-  const frac = ((k>>>0) % 997) / 997;
-  return clamp(base + (frac - 0.5) * T.holdSpread,
-               T.fightLeft + 40, T.fightRight - 40);
 }
 
 function unpile(e, dt){
@@ -2541,6 +2543,29 @@ function render(){
 ================================================================== */
 const $=id=>document.getElementById(id);
 const rows=$("rows"); const MAXROWS=7;
+
+/* This corner used to print the operator's keyboard shortcuts - S setup,
+   D demo, B boss - straight onto the broadcast, where every viewer could
+   read them and none could press them. It is the only part of the overlay
+   a newcomer reads before they have typed anything, so it answers the
+   question they actually have. The first line matters most: a lot of
+   people assume they need a command to take part, and they do not. */
+const HINTS=[
+  "just chat - you join the village automatically",
+  "!jump  !dance  !wave  !hug name  !attack name",
+  "!help - every command, on screen",
+  "!vshop - spend the points you earn by chatting",
+  "!royale  !basketball  !vduel name 10",
+];
+let hintI=0, hintT=0;
+function stepHint(dt){
+  const el=$("hint"); if(!el) return;
+  hintT-=dt;
+  if (hintT<=0){
+    el.textContent=HINTS[hintI%HINTS.length];
+    hintI++; hintT=18;
+  }
+}
 function log(parts){
   const r=document.createElement("div"); r.className="row";
   for(const p of parts){ const s=document.createElement("span");
@@ -2951,7 +2976,7 @@ function endMG(winner, label){
 }
 function startDuel(a, b, wager, force){
   if (MG.kind){ log([{t:"A minigame is already running",c:"c-v"}]); return; }
-  if (!a || !b || a===b || b.side!==1){ log([{t:"!duel name amount",c:"c-v"}]); return; }
+  if (!a || !b || a===b || b.side!==1){ log([{t:"!vduel name amount",c:"c-v"}]); return; }
   wager = Math.max(0, Math.min(500, wager|0));
   if (!force){
     MG.pending = {from:a, to:b, wager, until:V.t+18};
@@ -3026,7 +3051,7 @@ function doSlots(e, wager){
 function tryBuy(a, q){
   const key=(q||"").toLowerCase();
   const item=SHOP.find(s=>s.id===key || s.label.toLowerCase()===key);
-  if (!item){ log([{t:"Nothing by that name. ",c:"c-v"},{t:"!shop",c:"c-t"}]); return; }
+  if (!item){ log([{t:"Nothing by that name. ",c:"c-v"},{t:"!vshop",c:"c-t"}]); return; }
   coinsOf(a.rec);
   const owned = a.rec.owned.indexOf(item.id)>=0;
   if (!owned){
@@ -3109,11 +3134,11 @@ function runCmd(a, c, rest, tags){
     log([{t:a.name,c:"c-v"},{t:" ducked out · !hideavatar to come back",c:"c-v"}]);
     return;
   }
-  if (c==="points" || c==="currency" || c==="coins" || c==="gold"){
+  if (c==="vpoints" || c==="vcoins" || c==="vgold"){
     if ((rest[0]||"")==="give"){
       const t = findNamed(rest[1]);
       const n = Math.max(0, Math.min(coinsOf(a.rec), parseInt(rest[2],10)||0));
-      if (!t || !t.rec || !n){ log([{t:"!give name amount",c:"c-v"}]); return; }
+      if (!t || !t.rec || !n){ log([{t:"!vgive name amount",c:"c-v"}]); return; }
       a.rec.coins -= n; coinsOf(t.rec); t.rec.coins += n; Save.put();
       log([{t:a.name,c:"c-t"},{t:" gave "+n+" to ",c:"c-v"},{t:t.name,c:"c-l"}]);
       return;
@@ -3121,17 +3146,17 @@ function runCmd(a, c, rest, tags){
     log([{t:a.name,c:"c-t"},{t:" — "+coinsOf(a.rec)+" loyalty pts",c:"c-l"}]);
     return;
   }
-  if (c==="give") return runCmd(a, "points", ["give", ...rest], tags);
-  if (c==="shop") return showShop(a);
-  if (c==="buy") return tryBuy(a, arg || arg0);
-  if (c==="leaderboard" || c==="lb" || c==="top") return showBoard();
+  if (c==="vgive") return runCmd(a, "vpoints", ["give", ...rest], tags);
+  if (c==="vshop") return showShop(a);
+  if (c==="vbuy") return tryBuy(a, arg || arg0);
+  if (c==="vtop" || c==="vlb" || c==="vleaderboard") return showBoard();
   if (c==="avatar" || c==="class"){
     const want = (arg0||"").toLowerCase();
     const item = SHOP.find(s=>s.cls===want);
     if (!item){ log([{t:SHOP.filter(s=>s.cls).map(s=>s.cls).join(" "),
                      c:"c-v"}]); return; }
     if (a.rec.owned.indexOf(item.id)<0 && a.cls!==want){
-      log([{t:"Buy it first — !buy "+item.id+" ("+item.cost+")",c:"c-v"}]); return;
+      log([{t:"Buy it first - !vbuy "+item.id+" ("+item.cost+")",c:"c-v"}]); return;
     }
     a.cls=want; a.spriteKey=want; a.rec.klass=want; Save.put();
     log([{t:a.name,c:"c-t"},{t:" is a "+want,c:"c-v"}]);
@@ -3145,10 +3170,10 @@ function runCmd(a, c, rest, tags){
     log([{t:a.name,c:"c-t"},{t:" spun a new look",c:"c-v"}]);
     return;
   }
-  if (c==="duel"){
+  if (c==="vduel"){
     const t = findNamed(arg0);
     const w = parseInt(rest[1],10);
-    if (!t){ log([{t:"!duel name amount",c:"c-v"}]); return; }
+    if (!t){ log([{t:"!vduel name amount",c:"c-v"}]); return; }
     startDuel(a, t, isNaN(w)?10:w, false);
     return;
   }
@@ -3159,7 +3184,7 @@ function runCmd(a, c, rest, tags){
     beginDuel(p.from, a, p.wager);
     return;
   }
-  if (c==="slots" || c==="slot"){ doSlots(a, parseInt(arg0,10)||10); return; }
+  if (c==="vslots" || c==="vslot"){ doSlots(a, parseInt(arg0,10)||10); return; }
   if (c==="boss"){
     if (MG.kind){ log([{t:"Finish the minigame first",c:"c-v"}]); return; }
     if (V.boss && V.boss.alive){ log([{t:"A boss is already up",c:"c-v"}]); return; }
@@ -3219,9 +3244,25 @@ function runCmd(a, c, rest, tags){
     log([{t:a.name,c:"c-t"},{t:" rolled "+sum+" ("+n+"d"+faces+")",c:"c-l"}]);
     return;
   }
+  /* StreamElements owns !points !shop !buy !top !give !slots !duel by
+     default, so a viewer typing those got a red "item not found" from the
+     bot while the overlay quietly acted on the same message. The overlay's
+     economy moved behind a v prefix rather than asking anyone to turn off
+     half of StreamElements. The bare names are not silently ignored - they
+     say where the command went, once, in the log. */
+  const MOVED={points:"vpoints",coins:"vpoints",gold:"vpoints",currency:"vpoints",
+               shop:"vshop",buy:"vbuy",give:"vgive",top:"vtop",lb:"vtop",
+               leaderboard:"vtop",slots:"vslots",slot:"vslots",duel:"vduel"};
+  if (MOVED[c]){
+    log([{t:"!"+c,c:"c-v"},{t:" is now ",c:"c-v"},{t:"!"+MOVED[c],c:"c-t"},
+         {t:" (StreamElements uses the old name)",c:"c-v"}]);
+    return;
+  }
   if (c==="commands" || c==="help"){
-    log([{t:"!dance !hug !attack !bomb !duel !slots !boss !royale !basketball",c:"c-t"}]);
-    log([{t:"!points !shop !buy !leaderboard !avatar !color !hideavatar !lounge",c:"c-v"}]);
+    log([{t:"Just chat and you join - no command needed",c:"c-l"}]);
+    log([{t:"!jump !dance !wave !hug name !attack name !bomb !royale !basketball",c:"c-t"}]);
+    log([{t:"!vshop !vbuy crown !vpoints !vtop !vduel name 10 !vslots 10",c:"c-v"}]);
+    log([{t:"!avatar mage !color #4db8ff !hat !hideavatar !lounge !war",c:"c-v"}]);
     toast("COMMANDS IN THE LOG", "var(--teal)");
   }
 }
@@ -3613,6 +3654,7 @@ let last=performance.now();
   const dt=Math.min((now-last)/1000,.05); last=now;
   try {
     step(dt); stepSocial(dt); stepCue(); demoTick(dt); render(); hud(dt);
+    stepHint(dt);
   } catch (err) {
     if (!window.__jvErr) {
       window.__jvErr = String(err && (err.stack || err.message) || err);
