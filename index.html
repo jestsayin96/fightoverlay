@@ -165,6 +165,13 @@ button:hover{filter:brightness(1.12)}
       <span id="f-redir"></span>
     </p>
 
+    <p class="sub" id="f-obswrap" style="display:none">
+      <button id="b-copy" class="ghost" type="button">COPY OBS URL</button>
+      <span id="f-copied"></span><br>
+      Paste this into your OBS browser source. It carries the token, so
+      keep it off stream.
+    </p>
+
     <div class="btns">
       <button id="b-go">START</button>
       <button id="b-demo" class="ghost">DEMO</button>
@@ -316,6 +323,26 @@ function syncAuthLink(){
          + "&scope="        + encodeURIComponent(AUTH_SCOPES);
   r.textContent = "Register this redirect URI on the app first: " + redirectUri();
   wrap.style.display = "";
+}
+
+/* The token field is a password box, so its contents cannot be read off
+   the screen or copied out of it - which is exactly what someone setting
+   up OBS needs to do. Hand them the finished URL instead of asking them
+   to transcribe a 30-character secret they cannot see. */
+function obsUrl(){
+  const chan = (document.getElementById("f-chan").value||"").trim().replace(/^#/,"");
+  const cid  = (document.getElementById("f-cid").value||"").trim();
+  const tok  = (document.getElementById("f-tok").value||"").trim();
+  let u = redirectUri() + "?channel=" + encodeURIComponent(chan);
+  if (cid) u += "&clientid=" + encodeURIComponent(cid);
+  if (tok) u += "&token="    + encodeURIComponent(tok);
+  return u;
+}
+function syncObsLink(){
+  const wrap = document.getElementById("f-obswrap");
+  if (!wrap) return;
+  const chan = (document.getElementById("f-chan").value||"").trim();
+  wrap.style.display = chan ? "" : "none";
 }
 
 function saveCfg(){ try{ localStorage.setItem(CFGK,JSON.stringify(
@@ -3461,8 +3488,31 @@ addEventListener("message", (ev)=>{
 function openSetup(){
   $("f-chan").value=CFG.channel; $("f-cid").value=CFG.clientId; $("f-tok").value=CFG.token;
   syncAuthLink();
+  syncObsLink();
   /* rebuild the link as they type, so it is never stale against the id */
-  $("f-cid").oninput = syncAuthLink;
+  $("f-cid").oninput = ()=>{ syncAuthLink(); syncObsLink(); };
+  $("f-chan").oninput = syncObsLink;
+  $("f-tok").oninput  = syncObsLink;
+  $("b-copy").onclick = async ()=>{
+    const url = obsUrl(), note = $("f-copied");
+    try{
+      await navigator.clipboard.writeText(url);
+      note.textContent = "  copied";
+    }catch(e){
+      /* clipboard is blocked without a secure context or permission, so
+         fall back to selecting it: Ctrl+C still works on a real input. */
+      let box = document.getElementById("f-obsurl");
+      if (!box){
+        box = document.createElement("input");
+        box.id = "f-obsurl"; box.className = "wide";
+        box.readOnly = true;
+        $("f-obswrap").appendChild(box);
+      }
+      box.value = url; box.select();
+      note.textContent = "  press Ctrl+C";
+    }
+    setTimeout(()=>{ note.textContent = ""; }, 4000);
+  };
   $("setup").classList.add("on");
 }
 function closeSetup(){ $("setup").classList.remove("on"); }
