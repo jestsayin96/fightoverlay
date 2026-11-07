@@ -35,8 +35,14 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;
    and printed BATTLE LOG across HEROES/MONSTERS on a live stream. Neither
    panel is positioned by hand any more - they are one bottom-anchored
    column, so no row count can make them collide. */
+/* Hidden by default. The log is 21px text on a 1920 canvas, which is
+   about 7px in the player size most viewers actually watch at - noise
+   for everyone who is not full screen, which is nearly everyone. The
+   readable things (characters, nameplates, the boss bar, toasts) are
+   unaffected. ?hud=1 brings it back, or press V. */
 #sidecol{position:absolute;left:26px;bottom:206px;width:420px;
   display:flex;flex-direction:column;align-items:stretch;gap:10px}
+#sidecol.off{display:none}
 #feed{padding:9px 12px 10px}
 #feed .cap{font-size:9px;letter-spacing:.16em;color:var(--dim);margin-bottom:5px}
 #feed .row{font-family:var(--log);font-size:21px;line-height:1.15;
@@ -231,6 +237,7 @@ const T = {
                        //   bell, not an outcome.
   megaHp:     1400,    // per hero present
   megaAtk:    64,
+  logShow:    15,      // seconds the battle log stays up when asked for
   heroHold:   860,     // with nothing to fight, heroes hold this line
   mobHold:    1080,    // ...and monsters hold this one. Closer together
                        //   than they were: 420px apart meant the two
@@ -457,7 +464,7 @@ function mobLook(name){
 /* ==================================================================
    WORLD
 ================================================================== */
-const V = { ents:[], props:[], boss:null, mobQ:[], t:0, slain:0, lost:0,
+const V = { ents:[], props:[], boss:null, mobQ:[], logUntil:0, t:0, slain:0, lost:0,
             idleT:0, mobSeq:0, fx:[], shots:[], clouds:[], shake:0,
             bombs:[], balls:[], cue:[],
             /* steered difficulty: see steerDifficulty */
@@ -2613,10 +2620,26 @@ const rows=$("rows"); const MAXROWS=7;
 const HINTS=[
   "just chat - you join the village automatically",
   "!jump  !dance  !wave  !hug name  !attack name",
-  "!help - every command, on screen",
+  "!help - every command  ·  !log - show the battle log",
   "!vshop - spend the points you earn by chatting",
   "!royale  !basketball  !vduel name 10",
 ];
+/* The log is hidden by default because at the player size most people
+   watch at, 21px text on a 1920 canvas renders around 7px - unreadable
+   noise. But it is worth reading when you want it, so anyone can call it
+   up for a few seconds and it puts itself away again. Asking while it is
+   already up restarts the clock rather than stacking. */
+function showLog(){
+  const col=$("sidecol"); if(!col) return;
+  col.classList.remove("off");
+  V.logUntil = V.t + T.logShow;
+}
+function stepLog(){
+  if (!V.logUntil || V.t < V.logUntil) return;
+  const col=$("sidecol"); if(col) col.classList.add("off");
+  V.logUntil = 0;
+}
+
 let hintI=0, hintT=0;
 function stepHint(dt){
   const el=$("hint"); if(!el) return;
@@ -3330,6 +3353,7 @@ function runCmd(a, c, rest, tags){
          {t:" (StreamElements uses the old name)",c:"c-v"}]);
     return;
   }
+  if (c==="log" || c==="battlelog" || c==="feed"){ showLog(); return; }
   if (c==="commands" || c==="help"){
     log([{t:"Just chat and you join - no command needed",c:"c-l"}]);
     log([{t:"!jump !dance !wave !hug name !attack name !bomb !royale !basketball",c:"c-t"}]);
@@ -3700,6 +3724,10 @@ addEventListener("keydown",e=>{
     startHoop();
   }
   else if(k==="d"){ SCENE="war"; demo=!demo; demoT=.2; log([{t:demo?"Demo on":"Demo off",c:"c-l"}]); }
+  else if(k==="v"){          /* L already drops loot */
+    const col=$("sidecol");
+    if(col){ col.classList.toggle("off"); V.logUntil=0; }   // manual wins
+  }
   else if(k==="s"||e.key==="Escape"){
     /* Must go through openSetup(): it loads the saved settings into the
        fields and builds the Twitch authorize link. Toggling the class
@@ -3727,7 +3755,7 @@ let last=performance.now();
   const dt=Math.min((now-last)/1000,.05); last=now;
   try {
     step(dt); stepSocial(dt); stepCue(); demoTick(dt); render(); hud(dt);
-    stepHint(dt);
+    stepHint(dt); stepLog();
   } catch (err) {
     if (!window.__jvErr) {
       window.__jvErr = String(err && (err.stack || err.message) || err);
@@ -3737,6 +3765,13 @@ let last=performance.now();
   }
   requestAnimationFrame(frame);
 })(performance.now());
+
+/* Off unless asked for. Kept as a toggle rather than deleted: it is the
+   only way to see what the fight is doing when something looks wrong. */
+(function hudVisibility(){
+  const col=$("sidecol");
+  if (col && Q.get("hud")!=="1") col.classList.add("off");
+})();
 
 if (Q.get("review")==="1"){
   window.__jv = function(){
