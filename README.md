@@ -134,16 +134,20 @@ shown on screen — that corner now carries hints aimed at viewers instead.
 
 ## License
 
-Copyright (c) 2026 Jose Luis Estrada (JestSayin96). **All rights reserved** -
-see [LICENSE](LICENSE).
+**Copyright (c) 2026 Jose Luis Estrada (JestSayin96). All rights reserved.
+Proprietary — not open source, not public domain.** See [LICENSE](LICENSE).
 
-This repository is public so GitHub Pages can serve it, and a browser overlay
-has to serve its own source in order to run. Neither of those makes it free to
-take. You may read it, learn from it, and run the hosted copy. You may not sell
-it, redistribute it, host your own public copy, or use its artwork elsewhere
-without written permission.
+This repository is public so GitHub Pages can serve it, and a browser overlay has to
+transmit its own source in order to render. Neither is a licence.
 
-Every character sprite in `sprites/` is original work drawn for this project -
-no stock, no CC0, no asset packs. See [LICENSES.md](LICENSES.md).
+**You may not** sell it, redistribute it, host a public copy, extract or re-draw its
+artwork for another project, or train a model on it.
 
-Want to use some of it? Ask. The answer is often yes.
+All 21 characters in `sprites/` are original works drawn for this project — no stock, no
+asset packs, no CC0. Each is separately copyrightable and infringement is assessed **per
+work**. The commit history timestamps every sprite from its first pixel, so authorship
+is not arguable. Infringing copies are met with DMCA notices to the host, the storefront
+and the payment processor.
+
+**Permission is available and often granted to anyone who asks first** — open an
+[issue](https://github.com/jestsayin96/fightoverlay/issues). Asking costs you a message.
