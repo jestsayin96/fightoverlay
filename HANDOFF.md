@@ -205,6 +205,37 @@ now almost entirely in the setup panel:
    `channel:read:subscriptions`) correctly encoded.
 3. Click it, approve, and Twitch redirects back to the overlay with the
    token. It is saved and the URL is scrubbed.
+4. Press **COPY OBS URL** and paste the result into the OBS browser
+   source. That is the only supported way to move the token to OBS.
+
+**Why step 4 exists.** OBS keeps its own storage, so authorising in a
+desktop browser leaves OBS with nothing; the token has to travel in the
+source URL. But the token field is `type="password"`, so it cannot be
+read off the screen or copied out of - the one thing setup requires.
+Telling someone to "paste your token into the OBS URL" is an instruction
+nobody can follow, and the predictable result is a live OBS source
+running the literal placeholder text out of the guide. The button
+assembles channel + client id + token and hands it over whole.
+
+Three failures found while a real person set this up, all of the same
+shape - **the overlay knew it was broken and said nothing useful**:
+
+- The **S key** toggled the setup panel's class directly instead of
+  calling `openSetup()`, so the panel opened with empty fields and no
+  authorize link. The link could only ever appear via `?cmd=setup`,
+  which is how it was tested. Both open and close now go through
+  `openSetup()`/`closeSetup()`.
+- A rejected token reported itself correctly and was then **overwritten
+  by the chat connection succeeding** a moment later, because both wrote
+  to the same `#status` element and settled at different times. A
+  misconfigured overlay looked identical to a healthy one. Chat and
+  events own a line each now (`stat` / `statEvents`) and neither can
+  erase the other.
+- A placeholder token produced a bare `401`. Anything that is not 20+
+  alphanumerics is now named as placeholder text.
+
+If events are off, the status line says which of the three subscriptions
+failed and with what code. Read it before guessing.
 
 The fragment pickup is the part worth knowing about: Twitch's implicit
 flow returns the token after a `#`, not in the query string, and `Q` only
