@@ -227,6 +227,11 @@ const T = {
   mobHold:    1080,    // ...and monsters hold this one. Closer together
                        //   than they were: 420px apart meant the two
                        //   idle ranks stared at each other out of reach
+  holdSpread: 0,       // how wide each side fans out along its hold line.
+                       //   0 = everyone stacks on one x, which is what put
+                       //   a whole live stream's cast in the right third
+                       //   of the frame. Swept below; 0 keeps the old
+                       //   behaviour for an honest A/B.
   fightLeft:  380,     // duels are held inside this band of the frame
   fightRight: 1560,    //   so the fight can never drift off to an edge
   bossHold:   1420,    // a boss plants itself here and waits
@@ -1069,7 +1074,7 @@ function lineGoal(e, foe){
   const files=Math.max(1, Math.ceil(n/2));
   const y=lane===0 ? T.stripTop+26 : T.stripBot-16;
   const back=lane===0 ? 0 : 16;
-  const hold=e.side===1 ? T.heroHold : T.mobHold;
+  const hold=holdLine(e);
   const desired = foe ? foe.x - e.side*T.frontGap : hold;
   const lead=leadingX(e.side);
   let nose = lead + e.side*40;
@@ -1080,6 +1085,27 @@ function lineGoal(e, foe){
   const tailRoom = Math.max(48, e.side===1 ? nose-tailLimit : tailLimit-nose);
   const gap = files<=1 ? 0 : Math.min(T.fileGap, tailRoom / Math.max(1, files-1));
   return {x: nose - e.side*(file*gap + back), y};
+}
+
+/* Both sides used a single hold x, so with nothing to fight everyone
+   stacked on one vertical line and every duel then started wherever the
+   monsters happened to walk in - on a live stream that was the right
+   third of the frame, with nameplates piling onto each other because
+   there was nowhere else for them to go.
+
+   Each character gets its own place on the line instead. A hero's spot
+   comes from their name, so a viewer stands in the same place every
+   stream; a monster's comes from its id. This costs no walking: it is
+   where they were already standing, just spread out. The column-grid
+   attempts in HANDOFF all failed because they made characters walk to a
+   slot INSTEAD of fighting. */
+function holdLine(e){
+  const base = e.side===1 ? T.heroHold : T.mobHold;
+  if (!T.holdSpread) return base;
+  const k = e.side===1 ? hash((e.name||"").toLowerCase()) : Math.imul(e.id,2654435761);
+  const frac = ((k>>>0) % 997) / 997;
+  return clamp(base + (frac - 0.5) * T.holdSpread,
+               T.fightLeft + 40, T.fightRight - 40);
 }
 
 function unpile(e, dt){
