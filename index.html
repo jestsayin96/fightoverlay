@@ -223,6 +223,14 @@ const T = {
   mobGate:    1970,    // monsters walk on from here
   nameMaxW:   220,     // px; a 25-char Twitch name draws ~300 unclipped
   bossScale:  1.5,     // bosses draw at 1.5x; the art is 2x, so 3x whole pixels
+  megaScale:  2.5,     // a Mega Boss draws at 2.5x - the art is 2x, so 5x
+                       //   whole pixels. Has to read as a different weight
+                       //   class at a glance, not a slightly larger boss.
+  megaLife:   60,      // seconds before it leaves of its own accord. It is
+                       //   built to beat the village, so the fight needs a
+                       //   bell, not an outcome.
+  megaHp:     1400,    // per hero present
+  megaAtk:    64,
   heroHold:   860,     // with nothing to fight, heroes hold this line
   mobHold:    1080,    // ...and monsters hold this one. Closer together
                        //   than they were: 420px apart meant the two
@@ -638,6 +646,55 @@ function spawnBoss(by){
   toast("BOSS: "+kind.toUpperCase(), "var(--boss)");
 }
 
+/* A Mega Boss is deliberately unwinnable-ish: enough health and damage to
+   flatten the whole village. That makes an ordinary fight-to-the-death the
+   wrong shape - the heroes would simply lose and stay lost - so it leaves
+   on a one minute timer instead. Surviving it IS the win; killing it is a
+   rare one. Downed heroes get back up on their own after downTime, so a
+   wipe is a spectacle rather than a dead screen. Mods and the broadcaster
+   only, because it takes the field over while it is up. */
+function spawnMegaBoss(by){
+  if (V.boss && V.boss.alive){
+    log([{t:"Something is already up",c:"c-v"}]); return; }
+  const kind = pick(["THE HOLLOW KING","GOD OF THE DEEP DARK","THE UNMAKER",
+                     "CARRION EMPEROR","THE LAST GIANT"]);
+  const pop = Math.max(3, heroes().length);
+  const B = baseEnt(kind, -1, mobLook(kind));
+  B.isBoss = true; B.isMega = true; B.kindName = kind;
+  B.summoner = by || "Someone";
+  B.spriteKey = "boss_" + BOSS_SPRITES[hash(kind) % BOSS_SPRITES.length];
+  B.x = T.mobGate + 90;
+  B.y = (T.stripTop + T.stripBot)/2;
+  B.maxHp = T.megaHp*pop; B.hp = B.maxHp;
+  B.atk = T.megaAtk; B.rate = 1.5;
+  B.until = V.t + T.megaLife;
+  V.ents.push(B); V.boss = B;
+  V.shake = Math.max(V.shake, 0.9);
+  log([{t:"THE GROUND SPLITS — ",c:"c-v"},{t:kind,c:"c-b"},
+       {t:" answers "+B.summoner,c:"c-v"}]);
+  log([{t:"Survive "+T.megaLife+" seconds.",c:"c-l"}]);
+  toast("MEGA BOSS: "+kind, "var(--boss)");
+}
+
+/* Its clock. Reaching zero is the village surviving, which is the win the
+   fight is actually built around. */
+function stepMega(){
+  const B = V.boss;
+  if (!B || !B.alive || !B.isMega) return;
+  if (V.t < B.until) return;
+  B.alive = false; B.fading = V.t; V.boss = null;
+  V.shake = Math.max(V.shake, 0.7);
+  log([{t:"THE VILLAGE HOLDS",c:"c-t"},
+       {t:" — "+B.kindName+" withdraws into the dark",c:"c-v"}]);
+  toast("THE VILLAGE SURVIVED","var(--teal)");
+  for (const h of heroes()){
+    h.state="dance"; h.stateT=5; h.hp=h.maxHp;
+    const up=Save.xp(h.name,10); h.level=h.rec?h.rec.level:h.level;
+    if(up) log([{t:h.name,c:"c-t"},{t:" reached level "+h.rec.level,c:"c-v"}]);
+  }
+  dropLoot(); dropLoot();
+}
+
 /* ---------- chat emotes ---------- */
 function act(a, what, arg){
   if (!a) return;
@@ -944,7 +1001,8 @@ function down(src, dst){
     dst.alive = false; dst.fading = V.t; V.boss = null;
     V.slain++;
     log([{t:"THE VILLAGE WINS",c:"c-t"},{t:" — "+dst.kindName+" has fallen",c:"c-v"}]);
-    toast("BOSS DEFEATED","var(--teal)");
+    toast(dst.isMega ? "MEGA BOSS SLAIN" : "BOSS DEFEATED","var(--teal)");
+    if (dst.isMega){ V.shake=Math.max(V.shake,1.0); dropLoot(); dropLoot(); }
     for (const h of heroes()){ h.state="dance"; h.stateT=5; h.hp=h.maxHp;
       const up=Save.xp(h.name,6); h.level=h.rec?h.rec.level:h.level;
       if(up) log([{t:h.name,c:"c-t"},{t:" reached level "+h.rec.level,c:"c-v"}]);
@@ -1145,6 +1203,7 @@ function step(dt){
     }
   }
 
+  stepMega();
   steerDifficulty(dt);
 
   /* re-pair a few times a second: often enough to pick up deaths and
@@ -1754,7 +1813,8 @@ function drawSprite(c, e, set){
      art, so 1.5 lands on a whole 3x of the original pixels. Scaling happens
      around the origin, which sits at the feet, so the boss grows upward and
      stays on its ground line. */
-  if (e.isBoss && T.bossScale !== 1) c.scale(T.bossScale, T.bossScale);
+  const bs = e.isMega ? T.megaScale : T.bossScale;
+  if (e.isBoss && bs !== 1) c.scale(bs, bs);
   /* r.real means the sheet has a genuine clip for this beat: none of the
      lean-and-rotate faking below applies, and the drawn arc would double
      up on the blade's own smear. */
@@ -2232,7 +2292,7 @@ function layoutPlates(c){
     const s = depth(e)/1.62;
     const sh2 = spriteSetFor(e);
     const base = sh2 ? (e.y + e.gy - (sh2.fh != null ? sh2.fh : 60) *
-                                      (e.isBoss ? T.bossScale : 1) - 4)
+                                      (e.isMega ? T.megaScale : e.isBoss ? T.bossScale : 1) - 4)
                      : (e.y + e.gy - 62*s - (e.isBoss?62:12));
     let put = null;
     /* A name is only useful if you can tell WHOSE it is, so it never moves
@@ -2587,7 +2647,10 @@ function hud(dt){
   $("lineFill").style.width = clamp(fx/1920*100, 4, 96).toFixed(1)+"%";
   const bb=$("bossbar");
   if (V.boss && V.boss.alive){ bb.classList.add("on");
-    $("bossName").textContent=V.boss.name.toUpperCase();
+    $("bossName").textContent = V.boss.isMega
+      ? V.boss.name.toUpperCase()+"   "+
+        Math.max(0,Math.ceil(V.boss.until-V.t))+"s"
+      : V.boss.name.toUpperCase();
     $("bossFill").style.width=clamp(V.boss.hp/V.boss.maxHp,0,1)*100+"%";
   } else bb.classList.remove("on");
   if (toastT>0){ toastT-=dt; if(toastT<=0) $("toast").classList.remove("on"); }
@@ -3196,6 +3259,15 @@ function runCmd(a, c, rest, tags){
     spawnBoss(a.name);
     return;
   }
+  if (c==="megaboss" || c==="mega"){
+    if (!privileged(a.name, tags) && !tags.forceMod){
+      log([{t:"The Mega Boss answers only the broadcaster and mods",c:"c-v"}]);
+      return;
+    }
+    SCENE="war";
+    spawnMegaBoss(a.name);
+    return;
+  }
   if (c==="royale" || c==="br"){ startRoyale(); return; }
   if (c==="join"){
     if (MG.kind==="royale-join"){
@@ -3263,6 +3335,7 @@ function runCmd(a, c, rest, tags){
     log([{t:"!jump !dance !wave !hug name !attack name !bomb !royale !basketball",c:"c-t"}]);
     log([{t:"!vshop !vbuy crown !vpoints !vtop !vduel name 10 !vslots 10",c:"c-v"}]);
     log([{t:"!avatar mage !color #4db8ff !hat !hideavatar !lounge !war",c:"c-v"}]);
+    log([{t:"!megaboss  (broadcaster and mods)",c:"c-b"}]);
     toast("COMMANDS IN THE LOG", "var(--teal)");
   }
 }
