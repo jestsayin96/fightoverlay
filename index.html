@@ -160,6 +160,10 @@ button:hover{filter:brightness(1.12)}
     <input id="f-cid" placeholder="leave blank to skip" autocomplete="off" spellcheck="false">
     <label for="f-tok">OAUTH TOKEN</label>
     <input id="f-tok" type="password" placeholder="leave blank to skip" autocomplete="off" spellcheck="false">
+    <p class="sub" id="f-authwrap" style="display:none">
+      <a id="f-auth" href="#" target="_top">Authorize with Twitch and fill this in &rarr;</a><br>
+      <span id="f-redir"></span>
+    </p>
 
     <div class="btns">
       <button id="b-go">START</button>
@@ -177,6 +181,13 @@ button:hover{filter:brightness(1.12)}
    CONFIG
 ================================================================== */
 const Q = new URLSearchParams(location.search);
+/* Twitch's implicit OAuth flow hands the token back in the URL FRAGMENT,
+   not the query string - .../#access_token=... - so pointing a redirect
+   straight back at this page used to deliver a perfectly good token to
+   somewhere nothing read. Pick it up here, and scrub it out of the address
+   bar afterwards so it is not sitting in a URL that gets screenshotted,
+   shared or left in OBS. */
+const H = new URLSearchParams(location.hash.replace(/^#/, ""));
 const SAVE = "jv-save-v1", CFGK = "jv-cfg-v1";
 
 const T = {
@@ -268,12 +279,45 @@ function loadCfg(){
   return {
     channel:(Q.get("channel")||s.channel||"").replace(/^#/,""),
     clientId:Q.get("clientid")||s.clientId||"",
-    token:(Q.get("token")||s.token||"").replace(/^oauth:/i,""),
+    token:(Q.get("token")||H.get("access_token")||s.token||"").replace(/^oauth:/i,""),
     demo:Q.get("demo")==="1",
     backdrop:Q.get("backdrop")==="1",
     platform:Q.get("platform")||s.platform||"twitch",
   };
 }
+/* A token that arrived from the redirect is only in memory: keep it, then
+   take it out of the address bar. */
+if (H.get("access_token")){
+  try{ localStorage.setItem(CFGK, JSON.stringify(
+    {channel:CFG.channel, clientId:CFG.clientId, token:CFG.token,
+     platform:CFG.platform})); }catch(e){}
+  try{ history.replaceState(null, "", location.pathname + location.search); }catch(e){}
+}
+
+/* The step people actually get stuck on is hand-building the authorize URL
+   with its three scopes URL-encoded, so build it from the Client ID they
+   have just typed. The redirect comes back to this exact page, which is
+   what the fragment pickup above is for: authorize, land back here, token
+   already in. The redirect URI is shown because Twitch only accepts one it
+   has been told about in advance, character for character. */
+const AUTH_SCOPES = "moderator:read:followers channel:read:redemptions " +
+                    "channel:read:subscriptions";
+function redirectUri(){ return location.origin + location.pathname; }
+function syncAuthLink(){
+  const wrap = document.getElementById("f-authwrap");
+  const a = document.getElementById("f-auth");
+  const r = document.getElementById("f-redir");
+  if (!wrap || !a) return;
+  const cid = (document.getElementById("f-cid").value || "").trim();
+  if (!cid){ wrap.style.display = "none"; return; }
+  a.href = "https://id.twitch.tv/oauth2/authorize?response_type=token"
+         + "&client_id="    + encodeURIComponent(cid)
+         + "&redirect_uri=" + encodeURIComponent(redirectUri())
+         + "&scope="        + encodeURIComponent(AUTH_SCOPES);
+  r.textContent = "Register this redirect URI on the app first: " + redirectUri();
+  wrap.style.display = "";
+}
+
 function saveCfg(){ try{ localStorage.setItem(CFGK,JSON.stringify(
   {channel:CFG.channel,clientId:CFG.clientId,token:CFG.token,
    platform:CFG.platform})); }catch(e){} }
@@ -3369,6 +3413,9 @@ addEventListener("message", (ev)=>{
 ================================================================== */
 function openSetup(){
   $("f-chan").value=CFG.channel; $("f-cid").value=CFG.clientId; $("f-tok").value=CFG.token;
+  syncAuthLink();
+  /* rebuild the link as they type, so it is never stale against the id */
+  $("f-cid").oninput = syncAuthLink;
   $("setup").classList.add("on");
 }
 $("b-go").onclick=()=>{

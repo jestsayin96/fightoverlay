@@ -191,6 +191,37 @@ One self-contained `index.html`. No build step, no server, no dependencies.
 A GitHub Actions workflow publishes it to Pages on every push to `main`, so
 OBS points at a URL and a refresh picks up changes.
 
+### Turning on follows, subs and channel points
+
+Chat avatars need no credentials. The event features do, and the flow is
+now almost entirely in the setup panel:
+
+1. Make an app at dev.twitch.tv/console/apps. Its **OAuth Redirect URL**
+   must be the overlay's own URL, character for character - the setup
+   panel prints the exact string to paste.
+2. Put the app's Client ID in the panel. An **Authorize with Twitch** link
+   appears, already carrying the three scopes
+   (`moderator:read:followers`, `channel:read:redemptions`,
+   `channel:read:subscriptions`) correctly encoded.
+3. Click it, approve, and Twitch redirects back to the overlay with the
+   token. It is saved and the URL is scrubbed.
+
+The fragment pickup is the part worth knowing about: Twitch's implicit
+flow returns the token after a `#`, not in the query string, and `Q` only
+ever read `location.search`. A redirect pointed back at this page
+therefore used to deliver a perfectly good token to somewhere nothing
+read, with no error anywhere. `H` reads the fragment, `loadCfg` falls
+back to it, and `history.replaceState` takes it out of the address bar so
+it is not left sitting in a URL that gets screenshotted or shared.
+
+**What the events do.** A follow spawns a MONSTER named after the
+follower (they join the horde, which is the joke). A sub joins as a hero
+and is crowned. A channel point redemption is matched on its TITLE by the
+`REWARDS` table: `boss|raid|invade|titan` spawns a boss,
+`monster|mob|goblin|horde|spawn` spawns a tough monster,
+`loot|chest|drop|treasure` drops loot, and anything unmatched drops loot.
+So the reward names on Twitch are what wire them up - no ids to copy.
+
 ### Connection
 - **Chat avatars need no credentials.** Twitch permits anonymous IRC reads, so
   the overlay joins `wss://irc-ws.chat.twitch.tv:443` as `justinfan<random>`.
