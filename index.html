@@ -2544,7 +2544,23 @@ addEventListener("resize",fit); fit();
    TWITCH CHAT — anonymous, no token
 ================================================================== */
 let irc=null, ircRetry=0, ircJoined=false, ircJoinTimer=null;
-function stat(m,bad){ $("status").innerHTML=(bad?'<span class="bad">':"<b>")+m+(bad?"</span>":"</b>"); }
+/* The status line carries two independent facts - whether chat is
+   connected, and whether the follows/points socket is - and they settle at
+   different times. While both wrote to the same element the loser was
+   whichever finished last: a rejected token reported itself correctly and
+   was then wiped by the chat connection succeeding a moment later, so a
+   misconfigured overlay looked exactly like a healthy one. They get a line
+   each, and neither can erase the other. */
+const ST = {chat:"", events:""};
+function paint(m,bad){
+  return (bad?'<span class="bad">':"<b>") + String(m).replace(/\n/g,"<br>") +
+         (bad?"</span>":"</b>");
+}
+function renderStat(){
+  $("status").innerHTML = [ST.chat, ST.events].filter(Boolean).join("<br>");
+}
+function stat(m,bad){ ST.chat = paint(m,bad); renderStat(); }
+function statEvents(m,bad){ ST.events = paint(m,bad); renderStat(); }
 
 /* Ask to join, and keep asking until Twitch confirms. A JOIN can be lost
    without any error, and an overlay that is silently in no room looks
@@ -3288,6 +3304,12 @@ async function helix(path,params){
 }
 async function eventsubConnect(){
   try{
+    /* A token is 30-odd lowercase alphanumerics. Anything else is almost
+       always the placeholder out of a setup guide pasted through intact,
+       and "401" does not tell anyone that. Say what is actually wrong. */
+    if(!/^[a-z0-9]{20,}$/i.test(CFG.token))
+      throw new Error("that is not a real token - looks like placeholder "
+                    + "text. Press S and authorize with Twitch.");
     const v=await fetch("https://id.twitch.tv/oauth2/validate",
       {headers:{Authorization:"OAuth "+CFG.token}});
     if(!v.ok) throw new Error("token rejected ("+v.status+")");
@@ -3298,7 +3320,7 @@ async function eventsubConnect(){
     } else TW.bid=vd.user_id;
     if(!TW.bid) throw new Error("channel not found");
     esOpen("wss://eventsub.wss.twitch.tv/ws?keepalive_timeout_seconds=30");
-  }catch(e){ stat("Chat is live. Follows/points off: "+e.message,true); }
+  }catch(e){ statEvents("Follows/points OFF - "+e.message,true); }
 }
 function esOpen(url){
   if(TW.ws){ try{TW.ws.close();}catch(e){} }
@@ -3332,7 +3354,7 @@ async function esSubscribe(){
     catch(e){ out.push("✗ "+e.message); }
   }
   TW.ready=true;
-  stat("Chat + events live on #"+CFG.channel+"\n"+out.join("\n"));
+  statEvents(out.join("\n"), out.some(l=>l[0]==="\u2717"));
 }
 /* Twitch EventSub notification -> Game.* */
 function esEvent(type,ev){
