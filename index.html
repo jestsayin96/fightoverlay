@@ -323,7 +323,13 @@ const T = {
                        //   idle ranks stared at each other out of reach
   fightLeft:  380,     // duels are held inside this band of the frame
   fightRight: 1560,    //   so the fight can never drift off to an edge
-  bossHold:   1420,    // a boss plants itself here and waits
+  bossHold:   1060,    // a boss plants itself here and waits. It used to
+                       //   be 1420 - far right of a 1920 frame's centre -
+                       //   and since the whole village swarms a boss, the
+                       //   entire overlay moved over there with it. A
+                       //   screen recording of a real Mega Boss fight had
+                       //   everything between x=1100 and x=1500 with the
+                       //   left 60% of the frame empty for 40 seconds.
   engage:     64,      // how close before they stop and swing
   maxHeroes:  26,
   maxMobs:    22,
@@ -1255,7 +1261,13 @@ function nearestFoe(e){
      all the way in moves the meeting point to the middle, and costs
      nothing: walking in is what they were doing anyway. */
   const arrived = o => {
-    if (!T.bandOnly || o.isBoss) return true;
+    if (!T.bandOnly) return true;
+    /* Bosses were exempt, which is why a boss fight always happened at the
+       right-hand gate: the boss became a target the moment it appeared, the
+       village ran out to meet it, and it never reached the spot it was
+       supposed to plant itself on. It has to walk in like everything else -
+       then bossHold actually decides where the fight is. */
+    if (o.isBoss) return Math.abs(o.x - T.bossHold) < T.arriveSlack + 120;
     if (o.x < T.fightLeft || o.x > T.fightRight) return false;
     if (o.side !== -1) return true;
     const hold = o.adv === 1 ? T.fightLeft + 160 : T.mobHold;
@@ -1362,9 +1374,15 @@ function leadingX(side, adv){
    marching instead of arriving as one heap. */
 function lineGoal(e, foe){
   if (e.isBoss){
+    /* A boss plants itself and makes the village come to it - which is what
+       the bossHold comment always claimed and the code never did. It used
+       to chase its current foe, while the foe closed on it, so the pair
+       walked each other across the frame and the whole fight drifted
+       wherever the chase went. Standing still makes bossHold mean what it
+       says, and a thing that huge standing its ground reads better than one
+       shuffling after a goblin. */
     const y=(T.stripTop+T.stripBot)/2;
-    if (!foe) return {x:T.bossHold, y};
-    return {x:foe.x - e.adv*(T.engage+8), y};
+    return {x:T.bossHold, y};
   }
   /* Paired off: go to your own opponent rather than queueing in the rank.
      Both halves of a pair derive the same depth from the pair's lower id,
