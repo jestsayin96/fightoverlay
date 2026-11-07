@@ -1,52 +1,95 @@
+                        PROPRIETARY SOFTWARE LICENSE
+                            ALL RIGHTS RESERVED
+
 Copyright (c) 2026 Jose Luis Estrada ("Mr. E", JestSayin96).
-All rights reserved.
 
-This software and its artwork are NOT open source and NOT public domain.
-Being readable does not make them free to take: the overlay runs in a
-browser, so its source is necessarily served to anyone who loads it, and
-this repository is public so that GitHub Pages can host it. Neither of
-those is a grant of rights.
+THIS IS NOT OPEN SOURCE SOFTWARE. THIS IS NOT PUBLIC DOMAIN. NO PERMISSION
+TO COPY, DISTRIBUTE OR SELL THIS WORK IS GRANTED BY ITS BEING VISIBLE.
 
-WHAT YOU MAY DO
+This repository is public so that GitHub Pages can serve it. A browser
+overlay must transmit its own source code in order to render at all. Neither
+fact is a license, a waiver, or an invitation. Reading this file is not
+permission to take what it describes.
 
-  - Read the source, and learn from it.
-  - Run the overlay as it is hosted by the copyright holder.
-  - Fork this repository on GitHub for the purpose of proposing a change
-    back to it.
+                              1. WHAT IS OWNED
 
-WHAT YOU MAY NOT DO without prior written permission from the copyright
-holder:
+Every file in this repository is the exclusive property of the copyright
+holder, including but not limited to:
 
-  - Sell, license, rent or otherwise charge for this work, in whole or in
-    part, modified or unmodified. This includes bundling it into a paid
-    product, a paid Twitch or OBS package, a template pack, an asset pack,
-    a course, or a subscription.
-  - Redistribute it, including re-uploading it to another repository,
-    marketplace, storefront, asset site or file host.
-  - Host your own public copy of it, whether or not you charge for it.
-  - Use its artwork anywhere outside this project. Every character sprite
-    and animation in sprites/ was drawn for this project and is original
-    work; none of it is stock, public domain or CC0, and the absence of a
-    third-party credit in LICENSES.md is deliberate.
-  - Remove or alter this notice, the copyright headers in the source, or
-    the attribution in the overlay itself.
+  (a) the overlay source code, in whole and in any part;
+  (b) every character sprite, animation frame and palette in sprites/ -
+      twenty-one original characters, each an independently copyrightable
+      work drawn specifically for this project. No asset here is stock,
+      public domain, CC0, AI-generated from a third-party set, or licensed
+      from anyone. There is no third-party credit in LICENSES.md because
+      there is no third party;
+  (c) the names "Jester's Village", "JestSayin96" and "The Jester's Court",
+      together with all associated branding and trade dress.
 
-NO TRADEMARK LICENSE
+                            2. WHAT IS PROHIBITED
 
-Nothing here grants any right to the names "Jester's Village",
-"JestSayin96", "The Jester's Court", or any associated logo or branding.
+You may NOT, without the copyright holder's prior written permission:
 
-RESERVATION
+  - SELL this work or any part of it, modified or unmodified, at any price,
+    including bundling it into a paid overlay pack, asset pack, template,
+    theme, course, Patreon tier, Ko-fi reward, Gumroad product, Itch
+    listing, Fiverr gig, or subscription of any kind;
+  - REDISTRIBUTE it, including re-uploading to any repository,
+    marketplace, storefront, asset site, Discord server or file host;
+  - HOST a public copy of it, free or paid;
+  - EXTRACT, re-draw, re-colour, re-scale, re-animate or otherwise derive
+    from its artwork for use in any other project, commercial or not;
+  - TRAIN a machine learning model on its code or artwork;
+  - REMOVE OR ALTER this license, the copyright notice in the source, or
+    any attribution displayed by the overlay itself;
+  - CLAIM authorship of it, in whole or in part.
 
-The copyright holder intends to offer this work commercially and reserves
-every right not expressly granted above. Permission for any use outside
-the list above must be obtained in writing first; ask, and it may well be
-granted.
+Ignorance of this file is not a defence. It is named LICENSE, it sits in
+the repository root, and its substance is repeated in the head of
+index.html, where anyone copying the file will necessarily have seen it.
 
-NO WARRANTY
+                             3. ENFORCEMENT
+
+The copyright holder actively monitors for infringement and WILL act on it.
+
+Infringing copies will be met with DMCA takedown notices filed against the
+infringing listing and, where warranted, the infringer's host, payment
+processor and platform account. GitHub, Gumroad, Itch.io, Patreon, Ko-fi,
+Etsy, Shopify, Discord, YouTube and Twitch all honour these, and repeat
+notices against the same account lead to its termination under their
+respective repeat-infringer policies.
+
+Where the infringement is commercial or willful, the copyright holder will
+pursue the full remedies available under the United States Copyright Act
+(17 U.S.C. § 501 et seq.), which may include injunctive relief, the
+infringer's profits, actual damages, and - where the work is registered -
+statutory damages of up to $150,000 per work willfully infringed, plus
+costs and attorney's fees under 17 U.S.C. § 505.
+
+Note the words "per work" in section 1(b). The twenty-one characters are
+not one asset.
+
+Infringement is easy to prove here and hard to argue away. This repository
+carries a complete, timestamped commit history recording every sprite from
+its first pixel, and the artwork is original rather than adapted - there is
+no prior art to hide behind and no "we both used the same asset pack"
+defence available.
+
+                          4. IF YOU WANT TO USE IT
+
+Permission is genuinely available, and is frequently granted, to anyone who
+asks first. Open an issue at
+github.com/jestsayin96/fightoverlay/issues, or contact the copyright holder
+through twitch.tv/JestSayin96.
+
+Asking costs you a message. Not asking costs considerably more.
+
+                              5. NO WARRANTY
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
