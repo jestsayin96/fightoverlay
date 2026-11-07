@@ -2603,6 +2603,8 @@ const SHOP = [
   {id:"rogue", cost:30, cls:"rogue", label:"Rogue"},
   {id:"barbarian", cost:30, cls:"barbarian", label:"Barbarian"},
   {id:"knight", cost:30, cls:"knight", label:"Knight"},
+  {id:"ranger", cost:40, cls:"ranger", label:"Ranger"},
+  {id:"necromancer", cost:50, cls:"necromancer", label:"Necromancer"},
 ];
 const SLOT_FACES = ["JEST","GOLD","SKUL","GEM","BOSS"];
 let slotShow = null;
@@ -3025,7 +3027,8 @@ function runCmd(a, c, rest, tags){
   if (c==="avatar" || c==="class"){
     const want = (arg0||"").toLowerCase();
     const item = SHOP.find(s=>s.cls===want);
-    if (!item){ log([{t:"mage cleric paladin rogue barbarian knight",c:"c-v"}]); return; }
+    if (!item){ log([{t:SHOP.filter(s=>s.cls).map(s=>s.cls).join(" "),
+                     c:"c-v"}]); return; }
     if (a.rec.owned.indexOf(item.id)<0 && a.cls!==want){
       log([{t:"Buy it first — !buy "+item.id+" ("+item.cost+")",c:"c-v"}]); return;
     }
