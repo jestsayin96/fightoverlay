@@ -972,6 +972,14 @@ function nearestFoe(e){
     return best;
   }
   /* the partner assignFoes gave us, while it still stands */
+  /* A Mega Boss takes the whole village's attention. Without this, heroes
+     keep picking the nearest ordinary monster - and the spawner keeps
+     making more - so only the one or two nearest the boss ever swing at
+     it, which is why its health bar used to sit at 90%+ when the clock
+     ran out. */
+  if (V.boss && V.boss.isMega && V.boss.alive && e.side===1 && e.state!=="down")
+    return V.boss;
+
   if (e.foeId != null){
     const p = V.ents.find(o=>o.id===e.foeId);
     if (p && p.alive && p.state!=="down" && p.side!==e.side) return p;
@@ -1153,6 +1161,21 @@ function lineGoal(e, foe){
     return { x: meet - e.side*(T.engage*0.5),
              y: T.stripTop + 9 + (slot/(lanes-1)) * band };
   }
+  /* Against a Mega Boss the ordinary file formation is actively wrong: it
+     recedes backward, so everyone past the front two stands outside the
+     boss's engage+70 reach - safe, and unable to reach it either. They
+     pack in abreast instead, five across the strip and only 34px between
+     ranks, so fifteen heroes all sit inside its reach and inside theirs.
+     That is what makes the health bar move and the wipe actually land. */
+  if (foe && foe.isMega && e.side===1){
+    const mates2=sideMates(e);
+    let j=0; for (let k=0;k<mates2.length;k++) if (mates2[k].id===e.id) j=k;
+    const ring=5, col=Math.floor(j/ring), row=j%ring;
+    const band=(T.stripBot-T.stripTop)-14;
+    return { x: foe.x - (T.engage-8) - col*34,
+             y: T.stripTop + 7 + (row/(ring-1))*band };
+  }
+
   const mates=sideMates(e);
   const n=Math.max(1, mates.length);
   let i=0;
@@ -1198,7 +1221,12 @@ function step(dt){
       V.idleT = 0;
       /* fill toward the target rather than one at a time: at a busy
          crowd the far line dies faster than a single arrival replaces it */
-      const want = Math.min(mobTarget() - mobs().length, T.spawnBurst);
+      /* No reinforcements while a Mega Boss is up: the fight is supposed
+         to be the village against one thing. Queued paid monsters are not
+         lost, they just wait for it to be over. */
+      const megaUp = V.boss && V.boss.isMega && V.boss.alive;
+      const want = megaUp ? 0
+                 : Math.min(mobTarget() - mobs().length, T.spawnBurst);
       for (let i=0; i<want; i++){
         /* someone paid for these, so they take the gap ahead of a
            wanderer the overlay invented. _q stops a drained entry from
