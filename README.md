@@ -9,15 +9,41 @@ from the right. They meet in the middle and fight.
 **In OBS:** add a Browser source pointing at
 
 ```
-https://jestsayin96.github.io/fightoverlay/
+https://jestsayin96.github.io/fightoverlay/?channel=YOURTWITCHNAME
 ```
 
-Set it to 1920x1080. To reach the setup screen inside OBS, right-click the source and
-choose **Interact**.
+Set it to **1920x1080**, and untick both **Shutdown source when not visible** and
+**Refresh browser when scene becomes active** — either one wipes your viewers' hats and
+points on every scene change. Put the source above your gameplay in the scene.
 
-Type your channel name and press START. That is all the chat avatars need — Twitch
-allows anonymous chat reading, so there is no token, no Client ID, and nothing to sign
-in to.
+That is all the chat avatars need. Twitch allows anonymous chat reading, so there is no
+token, no Client ID, and nothing to sign in to.
+
+You can also leave the channel off the URL and set it in the panel: right-click the
+source, choose **Interact**, press `S`, type the channel and press START.
+
+## Running it on another channel
+
+Nothing is hardcoded to one channel, so a second streamer does not need a copy, a fork
+or a deploy of their own. They point their own OBS at the same hosted page with their
+own name on it:
+
+```
+https://jestsayin96.github.io/fightoverlay/?channel=THEIRNAME
+```
+
+Their viewers' progress lives in their own browser, under a save key of their own (see
+**Progress saves**), so the two channels never see each other's levels, coins or hats.
+
+For follows, subs and channel points they need their **own** Twitch application — those
+are tied to a broadcaster's account, not to this page. They register one as described
+below and set its OAuth Redirect URL to this same page.
+
+The trade-off worth saying out loud: they are running *this* copy. If this Pages site
+changes or goes away, theirs changes or goes away with it.
+
+Note that doing this is permitted by the [LICENSE](LICENSE); hosting their own public
+copy is not.
 
 ## Optional: follows, subs and channel points
 
@@ -48,12 +74,19 @@ With a token connected:
 
 Actions: `!jump` `!dance` `!wave` `!sit` `!hug name` `!attack name` `!bomb` `!explode` `!hat` `!color red` `!stats` `!hideavatar`
 
-Points: `!points` `!shop` `!buy crown` `!give name 10` `!leaderboard` `!avatar mage` `!random`
+Points: `!vpoints` `!vshop` `!vbuy crown` `!vgive name 10` `!vtop` `!avatar mage` `!random`
 
-Minigames: `!duel name 10` then `!accept` · `!slots 10` · `!boss` · `!royale` then `!join` · `!basketball` then `!shoot 5`
+Minigames: `!vduel name 10` then `!accept` · `!vslots 10` · `!boss` · `!royale` then `!join` · `!basketball` then `!shoot 5`
+
+Fun: `!8ball will I win` · `!roll 2d6` · `!log` shows the battle log for 15 seconds · `!help`
 
 Floor: `!lounge` parks the monsters so chat just hangs out. `!war` brings the horde back.
-Mods: `!mass dance` (also hug, attack, bomb, explode, jump).
+Mods: `!mass dance` (also hug, attack, bomb, explode, jump) · `!megaboss`.
+
+**Why the `v` prefix.** StreamElements owns `!points` `!shop` `!buy` `!top` `!give`
+`!slots` and `!duel` by default, and answers them with its own store errors while this
+overlay acts on the same message. The economy commands moved rather than asking anyone
+to switch off half of StreamElements. Typing an old name tells you where it went.
 
 ## Abilities
 
@@ -66,7 +99,15 @@ spell also decides their class and silhouette.
 
 Levels, kills, deaths, hats and colours are kept in the browser's local storage, so your
 regulars keep their characters between streams. **Wipe Save** in the setup panel resets
-everyone to level 1.
+everyone to level 1, for the current channel only.
+
+The ledger is keyed per channel (`jv-save-v1:<channel>`), so running two channels in one
+browser keeps their audiences separate. Progress saved under the older single global key
+is carried across on first load rather than reset — the first channel to load claims it,
+and a marker stops any later channel inheriting a stranger's levels.
+
+It is per browser, so OBS and your desktop browser each keep their own copy, and clearing
+site data clears it.
 
 ## Tuning
 
@@ -86,6 +127,10 @@ Character size is the `depth()` function just below the render header.
 ## Keys (for testing outside OBS)
 
 `S` setup · `D` demo · `B` boss · `M` monster · `H` hero · `L` loot
+`G` hangout · `R` royale · `K` hoop · `V` show/hide the battle log
+
+These only work when the page has focus, so in OBS you need **Interact**. They are not
+shown on screen — that corner now carries hints aimed at viewers instead.
 
 ## License
 
