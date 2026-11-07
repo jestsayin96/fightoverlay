@@ -395,10 +395,43 @@ function saveCfg(){ try{ localStorage.setItem(CFGK,JSON.stringify(
 /* ==================================================================
    SAVE
 ================================================================== */
+/* One save key per channel. It used to be a single global key, which was
+   fine while exactly one channel existed - but localStorage is per browser,
+   not per channel, so the moment a second channel ran in the same browser
+   (testing someone else's setup, say) the two channels' viewers merged into
+   one ledger and inherited each other's levels, coins and hats.
+
+   Existing progress is carried across on first load rather than reset: the
+   old global key is copied into this channel's key the first time it is
+   missing, so nobody loses the levels they earned under the old scheme. */
+function saveKey(){
+  const ch=(CFG.channel||"").toLowerCase().replace(/^#/,"");
+  return ch ? SAVE+":"+ch : SAVE;
+}
 const Save = {
   d:{},
-  load(){ try{ this.d=JSON.parse(localStorage.getItem(SAVE)||"{}"); }catch(e){ this.d={}; } },
-  put(){ try{ localStorage.setItem(SAVE,JSON.stringify(this.d)); }catch(e){} },
+  load(){
+    const k=saveKey();
+    try{
+      let raw=localStorage.getItem(k);
+      if (raw==null && k!==SAVE){
+        /* The old global save belongs to whichever channel was using it,
+           and nothing records which. First channel to load claims it, and
+           a marker stops every later channel inheriting a stranger's
+           levels - which is exactly what happened in testing: the friend's
+           brand new channel opened with a level 12 viewer in it. */
+        const claimed=localStorage.getItem(SAVE+":claimedby");
+        const legacy=localStorage.getItem(SAVE);
+        if (legacy!=null && (!claimed || claimed===k)){
+          raw=legacy;
+          localStorage.setItem(k, legacy);
+          localStorage.setItem(SAVE+":claimedby", k);
+        }
+      }
+      this.d=JSON.parse(raw||"{}");
+    }catch(e){ this.d={}; }
+  },
+  put(){ try{ localStorage.setItem(saveKey(),JSON.stringify(this.d)); }catch(e){} },
   get(name){
     const k=name.toLowerCase();
     if(!this.d[k]) this.d[k]={ name, msgs:0, kills:0, deaths:0, level:1, xp:0,
@@ -414,7 +447,7 @@ const Save = {
     while(r.xp >= r.level*8){ r.xp-=r.level*8; r.level++; up=true; }
     this.put(); return up;
   },
-  wipe(){ this.d={}; try{ localStorage.removeItem(SAVE); }catch(e){} },
+  wipe(){ this.d={}; try{ localStorage.removeItem(saveKey()); }catch(e){} },
 };
 Save.load();
 
