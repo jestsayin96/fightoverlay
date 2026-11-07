@@ -258,9 +258,9 @@ const T = {
   stripBot:   1056,
   heroGate:   -50,     // heroes walk on from here
   mobGate:    1970,    // monsters walk on from the right...
-  twoGates:   1,       // 0 restores the single right-hand gate
+  twoGates:   0,       // measured and rejected - see below
   bandOnly:   1,       // 0 lets fights start outside the band again
-  holdSpread: 700,     // how wide each side fans out along its hold line
+  holdSpread: 0,       // measured and rejected - see below
   mobGateL:   -90,     // ...and, half the time, from the left. Monsters
                        //   used to arrive only from the right while heroes
                        //   joined once and stayed, so a queue of them was
@@ -1287,11 +1287,41 @@ function lineGoal(e, foe){
          -240     +326px     70.8     55.0%    13.7
          -480     +196px     55.0     48.1%    13.8
 
-       THE UNTRIED IDEA, and the only one left that treats the cause
-       rather than compensating for it: monsters should arrive from BOTH
-       gates, not only the right. That removes the inflow bias and costs
-       no fighting time. It is not a constant to tune - side drives
-       movement direction throughout, so it is real work. */
+       WHAT FINALLY WORKED, and why the measurements above were chasing
+       the wrong thing. Centre-of-mass was never the problem. Rendering a
+       frame instead of reading an aggregate showed the real one: every
+       character piled into one dense knot with the nameplates stacked,
+       while two thirds of the frame sat empty. A knot can sit dead centre
+       and score perfectly on every metric above.
+
+       Nothing stopped a fight starting outside the fight band, so where a
+       duel happened was decided by wherever the two sides first touched -
+       which is wherever the monsters walked in. March in first, then you
+       are a target (bandOnly). Free: fewer collisions, fewer characters
+       off the frame edge, same kills.
+
+                      clashes/char   span   offscreen  fighting  killed
+         baseline         2.69        996px    1.26      59.5%    17.8
+         band only        2.40       1179px    0.93      58.5%    17.8
+         band+gates       1.70       1472px    1.60      50.1%    16.1
+         band+gates+sp    1.97       1589px    1.74      53.8%    17.2
+
+       TWO GATES, measured and REJECTED. Monsters alternating both gates
+       cuts collisions by 37% - the best number here - and costs 16% of
+       the fighting time and 10% of the kills, which is the same toll
+       every column scheme paid. It also puts MORE characters off the
+       frame edge, which is the thing anyone actually notices. The code
+       stays (side and adv are properly separate now, which is a
+       correctness fix either way); the constant is 0.
+
+       SPREADING THE HOLD LINES, measured and REJECTED twice. It does
+       nothing on its own, and on top of the band rule it makes
+       collisions worse rather than better. Both attempts are above.
+
+       Still unsolved: the knot itself. Pairs form by nearest foe, so the
+       denser a cluster the more it attracts - positive feedback no
+       hold position can undo. Spreading the PAIRING, not the standing
+       positions, is the thing nobody has tried. */
     const cols = 11;
     const w    = (T.fightRight - T.fightLeft) / (cols - 1);
     const mid  = (e.x + foe.x) / 2;
