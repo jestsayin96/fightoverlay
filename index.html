@@ -345,7 +345,13 @@ let CFG = loadCfg();
 function loadCfg(){
   let s={}; try{ s=JSON.parse(localStorage.getItem(CFGK)||"{}"); }catch(e){}
   return {
-    channel:(Q.get("channel")||s.channel||"").replace(/^#/,""),
+    /* Twitch logins are [a-z0-9_] only. This string is interpolated into
+       the status line, which is written with innerHTML, and it arrives from
+       a URL that gets pasted between people - so anything else in it is
+       either a typo or an attack. Stripped rather than escaped, because a
+       channel name that needs escaping is not a channel name. */
+    channel:(Q.get("channel")||s.channel||"").replace(/^#/,"")
+              .replace(/[^A-Za-z0-9_]/g,"").slice(0,25),
     clientId:Q.get("clientid")||s.clientId||"",
     token:(Q.get("token")||H.get("access_token")||s.token||"").replace(/^oauth:/i,""),
     demo:Q.get("demo")==="1",
@@ -455,10 +461,26 @@ const Save = {
     if(!this.d[k]) this.d[k]={ name, msgs:0, kills:0, deaths:0, level:1, xp:0,
                                hat:null, color:null, first:Date.now(),
                                coins:40, owned:[], klass:null, hidden:false };
-    if(this.d[k].coins==null) this.d[k].coins=40;
-    if(!this.d[k].owned) this.d[k].owned=[];
-    this.d[k].name=name;
-    return this.d[k];
+    /* localStorage is untrusted input, whatever wrote it. A record whose
+       fields are the wrong type used to crash the command that touched it -
+       owned:"nope" threw "owned.push is not a function" out of !vbuy, which
+       kills the chat handler, not just the one command. Coerced on the way
+       out so a mangled save costs a viewer their progress and nothing else. */
+    const r=this.d[k];
+    const num=(v,d)=>{ const n=+v; return Number.isFinite(n) ? n : d; };
+    r.coins  = Math.max(0, Math.floor(num(r.coins, 40)));
+    r.level  = Math.max(1, Math.floor(num(r.level, 1)));
+    r.xp     = Math.max(0, num(r.xp, 0));
+    r.msgs   = Math.max(0, Math.floor(num(r.msgs, 0)));
+    r.kills  = Math.max(0, Math.floor(num(r.kills, 0)));
+    r.deaths = Math.max(0, Math.floor(num(r.deaths, 0)));
+    if(!Array.isArray(r.owned)) r.owned=[];
+    if(typeof r.hat   !== "string") r.hat   = null;
+    if(typeof r.color !== "string") r.color = null;
+    if(typeof r.klass !== "string") r.klass = null;
+    r.hidden = !!r.hidden;
+    r.name=name;
+    return r;
   },
   xp(name,n){
     const r=this.get(name); r.xp+=n; let up=false;
@@ -2817,8 +2839,10 @@ let irc=null, ircRetry=0, ircJoined=false, ircJoinTimer=null;
    misconfigured overlay looked exactly like a healthy one. They get a line
    each, and neither can erase the other. */
 const ST = {chat:"", events:""};
+function esc(t){ return String(t).replace(/[&<>"']/g,
+  c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function paint(m,bad){
-  return (bad?'<span class="bad">':"<b>") + String(m).replace(/\n/g,"<br>") +
+  return (bad?'<span class="bad">':"<b>") + esc(m).replace(/\n/g,"<br>") +
          (bad?"</span>":"</b>");
 }
 function renderStat(){
