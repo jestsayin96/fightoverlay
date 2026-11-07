@@ -254,8 +254,18 @@ const T = {
      combat or landed inside run-to-run noise. The pile was vertical.
      Costs about 40px of frame height: the tallest boss's head now
      reaches y805 instead of y845, still inside the bottom quarter. */
-  stripTop:   895,
-  stripBot:   1056,
+  stripTop:   1020,    // The strip is deliberately shallow, and its bottom
+                       //   is the frame's bottom. Over a full-frame webcam
+                       //   the overlay has to sit ON the bottom edge, not
+                       //   hover above it - stripBot used to be 1056 on a
+                       //   1080 frame, which left everyone floating 24px
+                       //   clear of the border. Everything vertical is
+                       //   sized from these two numbers.
+  stripBot:   1080,    // the bottom of the frame, exactly
+  duelLanes:  2,       // depth lanes duels spread across. Five fitted a
+                       //   161px strip; in 71px they would sit 14px apart
+                       //   and read as one line anyway.
+  megaRing:   3,       // rows abreast when the village swarms a Mega Boss
   heroGate:   -50,     // heroes walk on from here
   mobGate:    1970,    // monsters walk on from the right...
   twoGates:   0,       // measured and rejected - see below
@@ -1286,9 +1296,9 @@ function lineGoal(e, foe){
      three quarters of the kill rate - leaves the fight dynamics alone. */
   if (foe && e.foeId === foe.id){
     const key   = Math.min(e.id, foe.id);                    // stable per pair
-    const lanes = 5;
+    const lanes = T.duelLanes;
     const slot  = (key * 7) % lanes;
-    const band  = (T.stripBot - T.stripTop) - 18;
+    const band  = (T.stripBot - T.stripTop);
     /* Each duel gets its own column as well as its own depth lane, both
        derived from the pair so the two halves agree. Letting pairs settle
        wherever they met piled all of them into one 250px column in the
@@ -1422,7 +1432,7 @@ function lineGoal(e, foe){
       meet = T.fightLeft + col * w;
     }
     return { x: meet - e.adv*(T.engage*0.5),
-             y: T.stripTop + 9 + (slot/(lanes-1)) * band };
+             y: T.stripTop + band*0.18 + (slot/(lanes-1)) * (band*0.70) };
   }
   /* Against a Mega Boss the ordinary file formation is actively wrong: it
      recedes backward, so everyone past the front two stands outside the
@@ -1433,10 +1443,10 @@ function lineGoal(e, foe){
   if (foe && foe.isMega && e.side===1){
     const mates2=sideMates(e);
     let j=0; for (let k=0;k<mates2.length;k++) if (mates2[k].id===e.id) j=k;
-    const ring=5, col=Math.floor(j/ring), row=j%ring;
-    const band=(T.stripBot-T.stripTop)-14;
+    const ring=T.megaRing, col=Math.floor(j/ring), row=j%ring;
+    const band=(T.stripBot-T.stripTop);
     return { x: foe.x - e.adv*(T.engage-8) - e.adv*col*34,
-             y: T.stripTop + 7 + (row/(ring-1))*band };
+             y: T.stripTop + band*0.15 + (row/(ring-1))*(band*0.75) };
   }
 
   /* Walk to your own chest. Without this, reserving one only means nobody
@@ -1459,7 +1469,10 @@ function lineGoal(e, foe){
   const lane=i%2;
   const file=Math.floor(i/2);
   const files=Math.max(1, Math.ceil(n/2));
-  const y=lane===0 ? T.stripTop+26 : T.stripBot-16;
+  /* Proportional, not fixed: +26 and -16 were tuned against a 161px
+     strip and collapse to 8px apart in a shallow one. */
+  const SH=T.stripBot-T.stripTop;
+  const y=T.stripTop + (lane===0 ? SH*0.30 : SH*0.85);
   const back=lane===0 ? 0 : 16;
   const hold = holdLine(e);
   const desired = foe ? foe.x - e.adv*T.frontGap : hold;
