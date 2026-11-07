@@ -1527,14 +1527,18 @@ function drawHat(c,hat,col){
    Art: 0x72 "DungeonTileset II", CC0 — see LICENSES.md.
 ================================================================== */
 const CELL_W=112, CELL_H=120, ANCHOR_X=56, ANCHOR_Y=112;
-const SPRITE_DIR="sprites/dungeon/";
+/* Every set below names its own folder. There is no shared default any
+   more: this used to point at the vendored 0x72 pack, and three forEach
+   loops registered all 21 characters against it before the real
+   definitions overwrote them one by one - firing fifty failed requests on
+   every load, and leaving a third-party pack in the repo that nothing
+   used. The pack is gone and so are the loops. */
+const SPRITE_DIR="sprites/";
 
 const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian",
                       "ranger","necromancer"];
-/* All eight monsters are now drawn here, so the 0x72 sheets are out of
-   play entirely: they are still in sprites/dungeon and still listed in
-   LICENSES.md, but nothing references them. Mixing them in had put 30px
-   monsters shoulder to shoulder with 52px ones. The eight are kept apart
+/* Every monster is drawn for this project. Mixing in a third-party pack
+   had put 30px monsters shoulder to shoulder with 52px ones. They are kept apart
    by silhouette first and colour second, so a line of them does not read
    as one sprite repeated even before the runtime palette swap. */
 const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp",
@@ -1544,8 +1548,7 @@ const BOSS_SPRITES  = ["demon","ogre","bigzombie"];
 
 const SPRITES = {};
 /* geo lets a set carry its own cell size, foot anchor and folder, so art
-   drawn at a different scale drops in without rescaling the 0x72 pack.
-   Defaults are that pack's 112x120 cells with the feet at (56,112). */
+   drawn at a different scale drops in without rescaling anything else. */
 function defSprite(key, files, geo){
   const g = geo || {};
   const set = { cw: g.cw || CELL_W,   ch: g.ch || CELL_H,
@@ -1565,9 +1568,6 @@ function defSprite(key, files, geo){
   }
   SPRITES[key]=set;
 }
-HERO_SPRITES.forEach(c=>defSprite(c,
-  {idle:c+"_idle.png", walk:c+"_walk.png", hurt:c+"_hurt.png"}));
-
 /* Original art, drawn in Pixelwright and owned outright: 80x80 cells, feet
    at (36,74). It is the first set with real attack and death clips, so
    animOf plays those straight instead of borrowing the hurt cell. */
@@ -1615,9 +1615,6 @@ defSprite("ranger",
 defSprite("necromancer",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:40, ay:76, fh:64, dir:"sprites/necromancer/"});
-MOB_SPRITES.forEach(m=>defSprite("mob_"+m,
-  {idle:"mob_"+m+"_idle.png", walk:"mob_"+m+"_walk.png"}));
-
 /* Original art, same pipeline as the knight: 80x80 cells, feet at (38,72).
    It stands 52px where the 0x72 monsters stand 30px, because that pack
    draws its monsters at half the height of its heroes and the replacements
@@ -1697,9 +1694,6 @@ defSprite("mob_wraith",
 defSprite("mob_kobold",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:40, ay:76, fh:46, dir:"sprites/kobold/"});
-BOSS_SPRITES.forEach(b=>defSprite("boss_"+b,
-  {idle:"boss_"+b+"_idle.png", walk:"boss_"+b+"_walk.png"}));
-
 /* The first boss drawn here: 112x112 cells, feet at (56,102). It stands
    88px against the 0x72 bosses' 90px, so it drops in beside them without
    rescaling, and it is the only boss with real attack and death clips.

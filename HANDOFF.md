@@ -71,7 +71,7 @@ while the syntax check still says "parses OK".
 Every character on the field is original art now: six heroes, eight
 monsters, three bosses. Nothing borrows the 0x72 pack's hurt frame to
 fake an attack, nothing carries an upstream licence, and nothing in
-`sprites/dungeon/` is referenced any more.
+nothing third-party is referenced any more.
 
 Eight upright humanoids would have read as one shape in eight colours at
 stream size, so the last monster drawn, Swampy, is deliberately wider
@@ -295,14 +295,16 @@ Meteor unlocks at level 10. Damage scales with level. The spell also decides
 the character's class.
 
 ### Art
-`sprites/dungeon/` — 0x72 "DungeonTileset II", CC0. Still vendored, no longer
-drawn: every hero, monster and boss on the field is original art, and no name
-is held back waiting to be redrawn. Nothing in `index.html` references the
-pack; it could be deleted outright without changing what the overlay draws.
+Every hero, monster and boss is original art drawn in Pixelwright for this
+project. There is no third-party art in the repository and no asset pack to
+fall back on.
 
-`sprites/knight_*.png` — generated, unused. Kept as a reference for the
-extraction pipeline. Its walk frames differ by only 3-6% of silhouette, so the
-character slid instead of walking.
+A vendored CC0 pack (0x72 "DungeonTileset II") and four Grok-generated knight
+frames were deleted once nothing referenced them. Leaving unused third-party
+art beside original art invites the assumption that all of it is free to
+take, and three `forEach` registrations were still pointing every character
+at the old folder before the real definitions overwrote them - fifty failed
+requests on every load. Both the loops and the folder are gone; see LICENSE.
 
 ### Chat commands
 `!jump` `!dance` `!wave` `!sit` `!hat` `!color red` `!stats`
