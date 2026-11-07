@@ -257,7 +257,17 @@ const T = {
   stripTop:   895,
   stripBot:   1056,
   heroGate:   -50,     // heroes walk on from here
-  mobGate:    1970,    // monsters walk on from here
+  mobGate:    1970,    // monsters walk on from the right...
+  twoGates:   1,       // 0 restores the single right-hand gate
+  mobGateL:   -90,     // ...and, half the time, from the left. Monsters
+                       //   used to arrive only from the right while heroes
+                       //   joined once and stayed, so a queue of them was
+                       //   permanently in transit on that side: the cast
+                       //   sat +351px right of centre with a character off
+                       //   the right edge of the frame at any moment.
+                       //   Compensating for that cost fighting time every
+                       //   way it was tried (five attempts, all recorded
+                       //   below). Removing the bias costs nothing.
   nameMaxW:   220,     // px; a 25-char Twitch name draws ~300 unclipped
   bossScale:  1.5,     // bosses draw at 1.5x; the art is 2x, so 3x whole pixels
   megaScale:  2.5,     // a Mega Boss draws at 2.5x - the art is 2x, so 5x
@@ -555,7 +565,8 @@ function mobLook(name){
 /* ==================================================================
    WORLD
 ================================================================== */
-const V = { ents:[], props:[], boss:null, mobQ:[], logUntil:0, t:0, slain:0, lost:0,
+const V = { ents:[], props:[], boss:null, mobQ:[], logUntil:0, gateFlip:0,
+            t:0, slain:0, lost:0,
             idleT:0, mobSeq:0, fx:[], shots:[], clouds:[], shake:0,
             bombs:[], balls:[], cue:[],
             /* steered difficulty: see steerDifficulty */
@@ -691,7 +702,13 @@ function spawnMonster(name, opts){
       if (!taken.has(cand) || i === 23){ kind = k; label = cand; break; }
     }
   }
-  const m = baseEnt(label, -1, mobLook(label));
+  /* Alternate the gate strictly rather than randomly: random runs produce
+     streaks, and a streak is exactly the one-sided inflow this is meant to
+     remove. Bosses still come from the right - one thing arriving is an
+     entrance, not an inflow, and it should always come from the same
+     place. twoGates:0 restores the old single-gate behaviour for A/B. */
+  const adv = T.twoGates ? ((V.gateFlip = (V.gateFlip|0) + 1) % 2 ? 1 : -1) : -1;
+  const m = baseEnt(label, -1, mobLook(label), adv);
   m.kindName = kind;
   m.spriteKey = "mob_" + MOB_SPRITES[hash(label) % MOB_SPRITES.length];
   const crowd = crowdMul() * V.mobTough;
@@ -705,12 +722,19 @@ function spawnMonster(name, opts){
   return m;
 }
 
-function baseEnt(name, side, look){
+function baseEnt(name, side, look, adv){
+  adv = adv || (side===1 ? 1 : -1);
   return {
-    id:nid++, name, side, look, alive:true,
-    x: side===1 ? T.heroGate - rnd(0,160) : T.mobGate + rnd(0,160),
+    /* adv is which way this one walks in, and is NOT the same thing as
+       side. side is the team and decides who may hit whom; adv is pure
+       geometry - formation, facing, the gate behind you. They were one
+       value while every monster entered from the right, which is why
+       monsters could not enter from anywhere else. */
+    id:nid++, name, side, look, alive:true, adv,
+    x: adv===1 ? (side===1 ? T.heroGate : T.mobGateL) - rnd(0,160)
+               : T.mobGate + rnd(0,160),
     y: rnd(T.stripTop, T.stripBot),
-    vy:0, gy:0, face: side, walk:rnd(0,6),
+    vy:0, gy:0, face: adv, walk:rnd(0,6),
     state:"march", stateT:0, cd:rnd(0,1),
     flash:0, swing:0, fading:0, cast:0, slow:0, ab:null, abcd:99, foeId:null,
     lastSeen: V.t, born: V.t,
@@ -870,16 +894,16 @@ function cast(e, foe){
 
   switch(ab.id){
     case "fireball":
-      V.shots.push({k:"fireball",x:e.x+18*e.side,y:e.y-26,vx:620*e.side,owner:e,
+      V.shots.push({k:"fireball",x:e.x+18*e.face,y:e.y-26,vx:620*e.face,owner:e,
                     dmg:L,col:ab.col});
       break;
     case "crescent":
-      V.shots.push({k:"crescent",x:e.x+18*e.side,y:e.y-24,vx:780*e.side,owner:e,
+      V.shots.push({k:"crescent",x:e.x+18*e.face,y:e.y-24,vx:780*e.face,owner:e,
                     dmg:L,col:ab.col,pierce:3,hitIds:[]});
       break;
     /* ---- monster side ---- */
     case "spit":
-      V.shots.push({k:"fireball",x:e.x+18*e.side,y:e.y-24,vx:560*e.side,owner:e,
+      V.shots.push({k:"fireball",x:e.x+18*e.face,y:e.y-24,vx:560*e.face,owner:e,
                     dmg:L,col:ab.col});
       break;
     case "maul":
@@ -906,7 +930,7 @@ function cast(e, foe){
       if(kin.length) log([{t:e.name,c:"c-h"},{t:" howls — the pack rallies",c:"c-v"}]);
       break; }
     case "chain":{
-      const tg = foesNear(e, e.x+200*e.side, 420)
+      const tg = foesNear(e, e.x+200*e.face, 420)
         .sort((a,b)=>Math.abs(a.x-e.x)-Math.abs(b.x-e.x)).slice(0,3);
       let from = {x:e.x+14,y:e.y-26};
       for(const t of tg){
@@ -927,7 +951,7 @@ function cast(e, foe){
       for(const t of foesNear(e,e.x,165)){ abHit(e,t,L,ab.col); t.slow=2.4; }
       break;
     case "venom":
-      V.clouds.push({x:(foe?foe.x:e.x+160*e.side),y:e.y,r:92,life:6,age:0,
+      V.clouds.push({x:(foe?foe.x:e.x+160*e.face),y:e.y,r:92,life:6,age:0,
                      dmg:L,owner:e,col:ab.col,tick:0});
       break;
     case "mend":{
@@ -1139,22 +1163,28 @@ function down(src, dst){
   }
 }
 
+/* A file is everyone on your team walking the same way. Two waves coming
+   from opposite gates are two files, not one - sharing a file would have
+   them trailing back through each other. */
 function sideMates(e){
   const list=[];
   for (const o of V.ents)
-    if (o.alive && o.side===e.side && !o.isBoss && o.state!=="down") list.push(o);
+    if (o.alive && o.side===e.side && o.adv===e.adv && !o.isBoss &&
+        o.state!=="down") list.push(o);
   list.sort((a,b)=>a.id-b.id);
   return list;
 }
 
-function leadingX(side){
-  let lead = side===1 ? -1e9 : 1e9, any=false;
+function leadingX(side, adv){
+  let lead = adv===1 ? -1e9 : 1e9, any=false;
   for (const o of V.ents){
-    if (!o.alive || o.side!==side || o.isBoss || o.state==="down") continue;
+    if (!o.alive || o.side!==side || o.adv!==adv || o.isBoss ||
+        o.state==="down") continue;
     any=true;
-    lead = side===1 ? Math.max(lead, o.x) : Math.min(lead, o.x);
+    lead = adv===1 ? Math.max(lead, o.x) : Math.min(lead, o.x);
   }
-  return any ? lead : (side===1 ? T.heroGate : T.mobGate);
+  if (any) return lead;
+  return adv===1 ? (side===1 ? T.heroGate : T.mobGateL) : T.mobGate;
 }
 
 /* Two lanes of feet inside the strip, files stepped back along x so a
@@ -1165,7 +1195,7 @@ function lineGoal(e, foe){
   if (e.isBoss){
     const y=(T.stripTop+T.stripBot)/2;
     if (!foe) return {x:T.bossHold, y};
-    return {x:foe.x - e.side*(T.engage+8), y};
+    return {x:foe.x - e.adv*(T.engage+8), y};
   }
   /* Paired off: go to your own opponent rather than queueing in the rank.
      Both halves of a pair derive the same depth from the pair's lower id,
@@ -1249,7 +1279,7 @@ function lineGoal(e, foe){
     const mid  = (e.x + foe.x) / 2;
     const col  = clamp(Math.round((mid - T.fightLeft) / w), 0, cols - 1);
     const meet = T.fightLeft + col * w;
-    return { x: meet - e.side*(T.engage*0.5),
+    return { x: meet - e.adv*(T.engage*0.5),
              y: T.stripTop + 9 + (slot/(lanes-1)) * band };
   }
   /* Against a Mega Boss the ordinary file formation is actively wrong: it
@@ -1263,7 +1293,7 @@ function lineGoal(e, foe){
     let j=0; for (let k=0;k<mates2.length;k++) if (mates2[k].id===e.id) j=k;
     const ring=5, col=Math.floor(j/ring), row=j%ring;
     const band=(T.stripBot-T.stripTop)-14;
-    return { x: foe.x - (T.engage-8) - col*34,
+    return { x: foe.x - e.adv*(T.engage-8) - e.adv*col*34,
              y: T.stripTop + 7 + (row/(ring-1))*band };
   }
 
@@ -1276,17 +1306,20 @@ function lineGoal(e, foe){
   const files=Math.max(1, Math.ceil(n/2));
   const y=lane===0 ? T.stripTop+26 : T.stripBot-16;
   const back=lane===0 ? 0 : 16;
-  const hold=e.side===1 ? T.heroHold : T.mobHold;
-  const desired = foe ? foe.x - e.side*T.frontGap : hold;
-  const lead=leadingX(e.side);
-  let nose = lead + e.side*40;
-  if (e.side===1) nose=Math.min(nose, desired);
+  const hold = e.side===1 ? T.heroHold
+             : (e.adv===1 ? T.fightLeft + 120 : T.mobHold);
+  const desired = foe ? foe.x - e.adv*T.frontGap : hold;
+  const lead=leadingX(e.side, e.adv);
+  let nose = lead + e.adv*40;
+  if (e.adv===1) nose=Math.min(nose, desired);
   else nose=Math.max(nose, desired);
   /* trail back toward the gate you entered from, not into the crowd */
-  const tailLimit = e.side===1 ? T.heroGate-180 : T.mobGate+180;
-  const tailRoom = Math.max(48, e.side===1 ? nose-tailLimit : tailLimit-nose);
+  const tailLimit = e.adv===1
+      ? (e.side===1 ? T.heroGate : T.mobGateL) - 180
+      : T.mobGate + 180;
+  const tailRoom = Math.max(48, e.adv===1 ? nose-tailLimit : tailLimit-nose);
   const gap = files<=1 ? 0 : Math.min(T.fileGap, tailRoom / Math.max(1, files-1));
-  return {x: nose - e.side*(file*gap + back), y};
+  return {x: nose - e.adv*(file*gap + back), y};
 }
 
 function unpile(e, dt){
@@ -1353,7 +1386,7 @@ function step(dt){
         e.fallT -= dt;
         e.moving = false;
       } else {
-        e.x -= e.side * T.march * 0.9 * dt;
+        e.x -= e.adv * T.march * 0.9 * dt;
         e.walk += dt * 7;
         e.moving = true;
         e.dust = (e.dust||0) - dt;
@@ -1462,7 +1495,7 @@ function step(dt){
       e.moving = true;
       e.state = "march";
     } else {
-      e.face = foe ? (Math.sign(foe.x - e.x) || e.side) : e.side;
+      e.face = foe ? (Math.sign(foe.x - e.x) || e.adv) : e.adv;
       e.state = (foe && gap <= T.engage + 18) ? "fight" : "hold";
       /* a breath of life once planted — not a wander that restacks them */
       e.y += Math.sin(V.t * 1.6 + e.id) * 4 * dt;
@@ -1476,7 +1509,7 @@ function step(dt){
     unpile(e, dt);
 
     if (foe && gap <= T.engage){
-      e.face = Math.sign(foe.x - e.x) || e.side;
+      e.face = Math.sign(foe.x - e.x) || e.adv;
       if (!e.moving) e.state = "fight";
       e.cd -= dt;
       if (e.cd <= 0){
