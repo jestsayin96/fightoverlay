@@ -3421,6 +3421,7 @@ function openSetup(){
   $("f-cid").oninput = syncAuthLink;
   $("setup").classList.add("on");
 }
+function closeSetup(){ $("setup").classList.remove("on"); }
 $("b-go").onclick=()=>{
   CFG.channel=$("f-chan").value.trim().replace(/^#/,"");
   CFG.clientId=$("f-cid").value.trim();
@@ -3454,7 +3455,14 @@ addEventListener("keydown",e=>{
     startHoop();
   }
   else if(k==="d"){ SCENE="war"; demo=!demo; demoT=.2; log([{t:demo?"Demo on":"Demo off",c:"c-l"}]); }
-  else if(k==="s"||e.key==="Escape") $("setup").classList.toggle("on");
+  else if(k==="s"||e.key==="Escape"){
+    /* Must go through openSetup(): it loads the saved settings into the
+       fields and builds the Twitch authorize link. Toggling the class
+       here directly - which is what this used to do - opened a panel
+       with empty fields and no authorize link, every time. */
+    if ($("setup").classList.contains("on")) closeSetup();
+    else openSetup();
+  }
 });
 
 // open with the regulars already marching in
