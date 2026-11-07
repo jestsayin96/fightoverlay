@@ -270,6 +270,9 @@ const T = {
   mobGate:    1970,    // monsters walk on from the right...
   twoGates:   0,       // measured and rejected - see below
   bandOnly:   1,       // 0 lets fights start outside the band again
+  arriveSlack:140,     // how far short of its hold a monster may still be
+                       //   engaged. Too tight and heroes stand waiting;
+                       //   too loose and the fight drifts to the gate.
   stickyPairs:0,       // keep a pair together instead of re-pairing by
                        //   nearest every tick
   stickyRange:260,     // px; past this a sticky pair is dissolved
@@ -1244,8 +1247,22 @@ function nearestFoe(e){
      oscillation instead of fighting, and kills fell from 18 to 3. Someone
      still walking in simply is not a valid foe yet, so everyone waits at
      their hold inside the band and meets there. */
-  const inBand = o => !T.bandOnly || o.isBoss ||
-                      (o.x >= T.fightLeft && o.x <= T.fightRight);
+  /* A monster is not a target until it has walked to its hold line - not
+     merely until it is inside the band. Inside-the-band was enough to keep
+     fights on screen, but heroes still met each arrival at the band's
+     right edge, so on a real stream the whole village played out in the
+     right quarter of the frame with the left 60% empty. Making them come
+     all the way in moves the meeting point to the middle, and costs
+     nothing: walking in is what they were doing anyway. */
+  const arrived = o => {
+    if (!T.bandOnly || o.isBoss) return true;
+    if (o.x < T.fightLeft || o.x > T.fightRight) return false;
+    if (o.side !== -1) return true;
+    const hold = o.adv === 1 ? T.fightLeft + 160 : T.mobHold;
+    return o.adv === 1 ? o.x >= hold - T.arriveSlack
+                       : o.x <= hold + T.arriveSlack;
+  };
+  const inBand = arrived;
 
   if (e.foeId != null){
     const p = V.ents.find(o=>o.id===e.foeId);
@@ -3686,11 +3703,16 @@ function runCmd(a, c, rest, tags){
   }
   if (c==="vslots" || c==="vslot"){ doSlots(a, parseInt(arg0,10)||10); return; }
   if (c==="boss"){
+    /* Broadcaster and mods only - not because a boss is dangerous, but
+       because a free command that does exactly what a channel point
+       reward does makes the reward worthless. Nobody spends 1000 points
+       on something they can type. Viewers get bosses through the reward;
+       !monster and !loot deliberately do not exist for the same reason. */
+    if (!privileged(a.name, tags) && !tags.forceMod){
+      log([{t:"Bosses are summoned with channel points",c:"c-v"}]); return;
+    }
     if (MG.kind){ log([{t:"Finish the minigame first",c:"c-v"}]); return; }
     if (V.boss && V.boss.alive){ log([{t:"A boss is already up",c:"c-v"}]); return; }
-    if (V.bossCd && V.t<V.bossCd && !privileged(a.name, tags)){
-      log([{t:"The boss is catching its breath",c:"c-v"}]); return;
-    }
     V.bossCd = V.t+45;
     SCENE="war";
     spawnBoss(a.name);
@@ -3773,7 +3795,7 @@ function runCmd(a, c, rest, tags){
     log([{t:"!jump !dance !wave !hug name !attack name !bomb !royale !basketball",c:"c-t"}]);
     log([{t:"!vshop !vbuy crown !vpoints !vtop !vduel name 10 !vslots 10",c:"c-v"}]);
     log([{t:"!avatar mage !color #4db8ff !hat !hideavatar !lounge !war",c:"c-v"}]);
-    log([{t:"!megaboss  (broadcaster and mods)",c:"c-b"}]);
+    log([{t:"!boss and !megaboss are broadcaster and mods only",c:"c-b"}]);
     toast("COMMANDS IN THE LOG", "var(--teal)");
   }
 }

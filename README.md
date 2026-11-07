@@ -76,7 +76,12 @@ Actions: `!jump` `!dance` `!wave` `!sit` `!hug name` `!attack name` `!bomb` `!ex
 
 Points: `!vpoints` `!vshop` `!vbuy crown` `!vgive name 10` `!vtop` `!avatar mage` `!random`
 
-Minigames: `!vduel name 10` then `!accept` · `!vslots 10` · `!boss` · `!royale` then `!join` · `!basketball` then `!shoot 5`
+Minigames: `!vduel name 10` then `!accept` · `!vslots 10` · `!royale` then `!join` · `!basketball` then `!shoot 5`
+
+Broadcaster and mods only: `!boss` · `!megaboss` · `!mass dance`. Bosses are
+deliberately not a free command - viewers summon them with channel points, and
+a free equivalent would make the reward worthless. `!monster` and `!loot` do
+not exist for the same reason.
 
 Fun: `!8ball will I win` · `!roll 2d6` · `!log` shows the battle log for 15 seconds · `!help`
 
