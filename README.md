@@ -83,7 +83,7 @@ deliberately not a free command - viewers summon them with channel points, and
 a free equivalent would make the reward worthless. `!monster` and `!loot` do
 not exist for the same reason.
 
-Fun: `!8ball will I win` · `!vroll 2d6` · `!log` shows the battle log for 15 seconds · `!vhelp`
+Fun: `!8ball will I win` · `!roll 2d6` · `!log` shows the battle log for 15 seconds · `!vhelp`
 
 Floor: `!lounge` parks the monsters so chat just hangs out. `!war` brings the horde back.
 Mods: `!mass dance` (also hug, attack, bomb, explode, jump) · `!megaboss`.
@@ -92,9 +92,13 @@ Mods: `!mass dance` (also hug, attack, bomb, explode, jump) · `!megaboss`.
 StreamElements owns `!points` `!shop` `!buy` `!top` `!give` `!slots` and `!duel`, and
 answers them with its own store errors while this overlay acts on the same message.
 Bellmire HD - the town sim that runs as the main view on the same stream - owns
-`!stats` `!roll` `!help` and `!commands`; it is a dice game, so `!roll` is properly
-its. Everything moved rather than asking anyone to switch half of either off. Typing
-an old name tells you where it went.
+`!stats` `!help` and `!commands`. Everything moved rather than asking anyone to switch
+half of either off. Typing an old name tells you where it went.
+
+`!roll` stays bare here. Bellmire's `!roll` was an alias of `!guild` - the Guild Roll,
+a roster, not dice - and it has no viewer-facing dice command at all. A viewer typing
+`!roll` wants dice, which is what this does. `!vroll` still answers as a silent alias.
+`!log` is bare too: Bellmire's Chronicle is on-screen furniture, not a command.
 
 **Channel point rewards are an allowlist.** A reward whose title contains none of this
 overlay's keywords is ignored in silence. It used to fall through to a chest, which

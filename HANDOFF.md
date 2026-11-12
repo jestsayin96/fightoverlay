@@ -437,9 +437,13 @@ jestsayin96. Bellmire HD runs as the main view on the same stream. Four rules
 came out of that, and they generalise to any second points-driven tool:
 
 - **Bare command names are contested.** StreamElements owns the economy names;
-  Bellmire owns `!stats` `!roll` `!help` `!commands` (it is a dice game, so
-  `!roll` is properly its). Everything here carries the `v` prefix, and the old
-  name answers once with where it went - silence reads as broken.
+  Bellmire owns `!stats` `!help` `!commands`. Those carry the `v` prefix here,
+  and the old name answers once with where it went - silence reads as broken.
+  `!roll` and `!log` stay bare: Bellmire's `!roll` was an alias of `!guild`
+  (a roster, not dice) and it has no dice command at all, and its Chronicle is
+  on-screen furniture rather than anything anyone types. Check what a
+  neighbour's command actually DOES before ceding the name - a name that looks
+  contested may not be.
 - **Channel point rewards are an allowlist, never a classifier.** The matcher
   used to fall through to a chest for any unrecognised title, so every reward on
   the channel dropped loot here. An unmatched reward is somebody else's and is
