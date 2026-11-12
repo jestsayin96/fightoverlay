@@ -72,26 +72,40 @@ With a token connected:
 
 ## Chat commands
 
-Actions: `!jump` `!dance` `!wave` `!sit` `!hug name` `!attack name` `!bomb` `!explode` `!hat` `!color red` `!stats` `!hideavatar`
+Actions: `!jump` `!dance` `!wave` `!sit` `!hug name` `!attack name` `!bomb` `!explode` `!hat` `!color red` `!vstats` `!hideavatar`
 
 Points: `!vpoints` `!vshop` `!vbuy crown` `!vgive name 10` `!vtop` `!avatar mage` `!random`
 
 Minigames: `!vduel name 10` then `!accept` · `!vslots 10` · `!royale` then `!join` · `!basketball` then `!shoot 5`
 
-Broadcaster and mods only: `!boss` · `!megaboss` · `!mass dance`. Bosses are
+Broadcaster and mods only: `!boss` · `!megaboss` · `!mass dance` · `!royale` · `!basketball`. Bosses are
 deliberately not a free command - viewers summon them with channel points, and
 a free equivalent would make the reward worthless. `!monster` and `!loot` do
 not exist for the same reason.
 
-Fun: `!8ball will I win` · `!roll 2d6` · `!log` shows the battle log for 15 seconds · `!help`
+Fun: `!8ball will I win` · `!vroll 2d6` · `!log` shows the battle log for 15 seconds · `!vhelp`
 
 Floor: `!lounge` parks the monsters so chat just hangs out. `!war` brings the horde back.
 Mods: `!mass dance` (also hug, attack, bomb, explode, jump) · `!megaboss`.
 
-**Why the `v` prefix.** StreamElements owns `!points` `!shop` `!buy` `!top` `!give`
-`!slots` and `!duel` by default, and answers them with its own store errors while this
-overlay acts on the same message. The economy commands moved rather than asking anyone
-to switch off half of StreamElements. Typing an old name tells you where it went.
+**Why the `v` prefix.** Two neighbours own bare command names on this channel.
+StreamElements owns `!points` `!shop` `!buy` `!top` `!give` `!slots` and `!duel`, and
+answers them with its own store errors while this overlay acts on the same message.
+Bellmire HD - the town sim that runs as the main view on the same stream - owns
+`!stats` `!roll` `!help` and `!commands`; it is a dice game, so `!roll` is properly
+its. Everything moved rather than asking anyone to switch half of either off. Typing
+an old name tells you where it went.
+
+**Channel point rewards are an allowlist.** A reward whose title contains none of this
+overlay's keywords is ignored in silence. It used to fall through to a chest, which
+meant every reward on the channel - song requests, TTS, anything belonging to another
+app - dropped loot here.
+
+**`!royale` and `!basketball` are mods-only**, because both take the whole strip over
+and the main view opens its own panes; two takeovers at once is a mess on stream.
+
+**The follower monster is off by default** (`followMonster`), because another app on
+this channel owns follow alerts. The sub crown is unaffected.
 
 ## Abilities
 

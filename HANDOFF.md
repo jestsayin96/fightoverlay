@@ -307,7 +307,7 @@ at the old folder before the real definitions overwrote them - fifty failed
 requests on every load. Both the loops and the folder are gone; see LICENSE.
 
 ### Chat commands
-`!jump` `!dance` `!wave` `!sit` `!hat` `!color red` `!stats`
+`!jump` `!dance` `!wave` `!sit` `!hat` `!color red` `!vstats`
 `!hug` `!attack` `!bomb` `!explode` `!duel` `!accept` `!slots`
 `!boss` `!royale` `!join` `!basketball` `!shoot` `!points` `!shop` `!buy`
 `!leaderboard` `!avatar` `!hideavatar` `!lounge` `!war`
@@ -374,7 +374,7 @@ A monster-kill count that climbs all month turns isolated fights into a
 campaign.
 
 **Chat feedback.** The overlay cannot talk back — it reads chat anonymously.
-Sending requires a bot token, but `!stats` answering in chat would close the
+Sending requires a bot token, but `!vstats` answering in chat would close the
 loop.
 
 **Sound.** Silent. A hit thud and a boss roar would carry a lot.
@@ -429,3 +429,22 @@ down to 60px does not produce hand-drawn pixel art. If the target is pixel art,
 **Check animation in motion, not stills.** A sign error made every character
 moonwalk for hours; it was invisible in screenshots and obvious in two seconds
 of movement.
+
+## Sharing a channel with another app
+
+This overlay is not the only thing reading chat and Twitch events on
+jestsayin96. Bellmire HD runs as the main view on the same stream. Four rules
+came out of that, and they generalise to any second points-driven tool:
+
+- **Bare command names are contested.** StreamElements owns the economy names;
+  Bellmire owns `!stats` `!roll` `!help` `!commands` (it is a dice game, so
+  `!roll` is properly its). Everything here carries the `v` prefix, and the old
+  name answers once with where it went - silence reads as broken.
+- **Channel point rewards are an allowlist, never a classifier.** The matcher
+  used to fall through to a chest for any unrecognised title, so every reward on
+  the channel dropped loot here. An unmatched reward is somebody else's and is
+  ignored in silence - not logged, not toasted.
+- **One app per event.** `followMonster` defaults to 0 because another app owns
+  follow alerts. The sub crown stays on: it is cosmetic and stacks fine.
+- **Nothing takes the screen over without a mod.** `!royale` and `!basketball`
+  each seize the whole strip, and the main view opens its own panes.

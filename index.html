@@ -315,6 +315,10 @@ const T = {
                        //   have been playing longest.
   megaAtk:    44,
   logShow:    15,      // seconds the battle log stays up when asked for
+  followMonster: 0,    // 1 spawns a monster named after each new follower.
+                       //   Off because another app on this channel owns
+                       //   follow alerts, and two reactions to one follow
+                       //   is noise. The sub crown is unaffected.
   lootHold:   25,      // seconds a chest stays reserved for whoever paid
                        //   for it. 0 restores first-come-first-served.
   heroHold:   860,     // with nothing to fight, heroes hold this line
@@ -3067,7 +3071,7 @@ const rows=$("rows"); const MAXROWS=7;
 const HINTS=[
   "just chat - you join the village automatically",
   "!jump  !dance  !wave  !hug name  !attack name",
-  "!help - every command  ·  !log - show the battle log",
+  "!vhelp - every command  ·  !log - show the battle log",
   "!vshop - spend the points you earn by chatting",
   "!royale  !basketball  !vduel name 10",
 ];
@@ -3641,7 +3645,8 @@ function attackTarget(a, named){
 function runCmd(a, c, rest, tags){
   const arg = rest.join(" ");
   const arg0 = (rest[0]||"").replace(/^@/,"");
-  if (["jump","dance","sit","wave","hat","stats","charge"].includes(c)) return act(a, c);
+  if (["jump","dance","sit","wave","hat","charge"].includes(c)) return act(a, c);
+  if (c==="vstats") return act(a, "stats");
   if (c==="color" || c==="colour") return act(a, "color", arg);
   if (c==="hug"){
     const t = findNamed(arg0) || heroes().find(h=>h!==a && h.state!=="down");
@@ -3745,7 +3750,13 @@ function runCmd(a, c, rest, tags){
     spawnMegaBoss(a.name);
     return;
   }
-  if (c==="royale" || c==="br"){ startRoyale(); return; }
+  /* Mods only. Both of these take the whole strip over for their duration,
+     and the main view on this channel opens its own spotlight panes - two
+     takeovers at once is a mess on screen. */
+  if (c==="royale" || c==="br"){
+    if (!privileged(a.name, tags) && !tags.forceMod){
+      log([{t:"A royale is started by the mods",c:"c-v"}]); return; }
+    startRoyale(); return; }
   if (c==="join"){
     if (MG.kind==="royale-join"){
       if (!MG.roster.includes(a)){
@@ -3763,7 +3774,10 @@ function runCmd(a, c, rest, tags){
     log([{t:"Nothing to join",c:"c-v"}]);
     return;
   }
-  if (c==="basketball" || c==="hoop"){ startHoop(); return; }
+  if (c==="basketball" || c==="hoop"){
+    if (!privileged(a.name, tags) && !tags.forceMod){
+      log([{t:"Hoops is started by the mods",c:"c-v"}]); return; }
+    startHoop(); return; }
   if (c==="shoot"){
     if (MG.kind!=="hoop"){ log([{t:"No hoop up — !basketball",c:"c-v"}]); return; }
     const n=parseInt(arg0,10);
@@ -3784,7 +3798,7 @@ function runCmd(a, c, rest, tags){
                "Ask again after the next boss.","Obviously.","Not tonight."];
     log([{t:pick(ans),c:"c-l"}]); return;
   }
-  if (c==="roll"){
+  if (c==="vroll"){
     const spec=arg0||"1d20";
     const m=spec.match(/^(\d*)d(\d+)$/i);
     const n=Math.min(8, m?parseInt(m[1]||"1",10):1);
@@ -3799,19 +3813,28 @@ function runCmd(a, c, rest, tags){
      economy moved behind a v prefix rather than asking anyone to turn off
      half of StreamElements. The bare names are not silently ignored - they
      say where the command went, once, in the log. */
+  /* Two different neighbours own bare command names on this channel. The
+     first group collides with StreamElements; the second with Bellmire HD,
+     which runs as the main view on the same stream and is a dice game, so
+     !roll has to be its. Same redirect either way - a viewer typing the old
+     name is told once where it went rather than being met with silence. */
   const MOVED={points:"vpoints",coins:"vpoints",gold:"vpoints",currency:"vpoints",
                shop:"vshop",buy:"vbuy",give:"vgive",top:"vtop",lb:"vtop",
-               leaderboard:"vtop",slots:"vslots",slot:"vslots",duel:"vduel"};
+               leaderboard:"vtop",slots:"vslots",slot:"vslots",duel:"vduel",
+               stats:"vstats",roll:"vroll",help:"vhelp",commands:"vcommands"};
   if (MOVED[c]){
+    const BELLMIRE=/^(stats|roll|help|commands)$/;
     log([{t:"!"+c,c:"c-v"},{t:" is now ",c:"c-v"},{t:"!"+MOVED[c],c:"c-t"},
-         {t:" (StreamElements uses the old name)",c:"c-v"}]);
+         {t:BELLMIRE.test(c) ? " (Bellmire uses the old name)"
+                             : " (StreamElements uses the old name)",c:"c-v"}]);
     return;
   }
   if (c==="log" || c==="battlelog" || c==="feed"){ showLog(); return; }
-  if (c==="commands" || c==="help"){
+  if (c==="vcommands" || c==="vhelp"){
     log([{t:"Just chat and you join - no command needed",c:"c-l"}]);
     log([{t:"!jump !dance !wave !hug name !attack name !bomb !royale !basketball",c:"c-t"}]);
     log([{t:"!vshop !vbuy crown !vpoints !vtop !vduel name 10 !vslots 10",c:"c-v"}]);
+    log([{t:"!vstats !vroll 2d6 !8ball !log !vhelp",c:"c-v"}]);
     log([{t:"!avatar mage !color #4db8ff !hat !hideavatar !lounge !war",c:"c-v"}]);
     log([{t:"!boss and !megaboss are broadcaster and mods only",c:"c-b"}]);
     toast("COMMANDS IN THE LOG", "var(--teal)");
@@ -3902,7 +3925,11 @@ const Game = {
     if (!cmd) return;
     runCmd(a, cmd, parts.slice(1), tags);
   },
+  /* Off by default: on a channel where something else owns follow alerts,
+     two reactions to one follow is noise. The sub crown stays on - it is
+     cosmetic and sits happily alongside another app's sub moment. */
   follow(name){
+    if(!T.followMonster) return;
     spawnMonster(name);
     log([{t:name,c:"c-h"},{t:" followed — joins the monsters",c:"c-v"}]);
     toast(name+" FOLLOWED","var(--horde)");
@@ -3914,13 +3941,24 @@ const Game = {
     log([{t:name,c:"c-l"},{t:" subscribed — crowned",c:"c-v"}]);
     toast(name+" SUBSCRIBED","var(--loot)");
   },
-  // a channel-points style redemption, matched on its title
+  /* A channel-points redemption, matched on its title - and ONLY on its
+     title. This used to fall through to a chest for anything unmatched,
+     which meant every reward on the whole channel dropped loot here: a
+     TTS reward, a song request, a hydrate reminder, anything belonging to
+     another app. On a channel running a second points-driven tool that is
+     a stream of phantom chests nobody asked for.
+
+     An unrecognised reward is now ignored in silence. Not logged, not
+     toasted - it is somebody else's reward and this overlay has no
+     business reacting to it at all. */
   redeem(name, title){
     const t=(title||"").toLowerCase();
-    let act_="loot"; for(const r of REWARDS) if(r.re.test(t)){ act_=r.act; break; }
+    let act_=null;
+    for(const r of REWARDS) if(r.re.test(t)){ act_=r.act; break; }
+    if(act_===null) return;
     if(act_==="boss") spawnBoss(name);
     else if(act_==="mob") spawnMonster(name,{tough:30});
-    else dropLoot(name);
+    else if(act_==="loot") dropLoot(name);
   },
 };
 
@@ -3943,6 +3981,8 @@ function onChat(line){
    EVENTSUB — optional
 ================================================================== */
 const TW={ws:null,session:null,bid:null,ready:false,retry:0};
+/* An allowlist, not a classifier. A reward whose title matches none of
+   these belongs to something else on the channel and is ignored. */
 const REWARDS=[
   {re:/boss|raid|invade|titan/, act:"boss"},
   {re:/loot|chest|drop|treasure/, act:"loot"},
