@@ -74,42 +74,27 @@ With a token connected:
 
 Actions: `!jump` `!dance` `!wave` `!sit` `!hug name` `!attack name` `!bomb` `!explode` `!hat` `!color red` `!vstats` `!hideavatar`
 
-Points: `!vpoints` `!vshop` `!vbuy crown` `!vgive name 10` `!vtop` `!avatar mage` `!random`
+Points: `!vshop` `!vpoints` `!vbuy crown` `!vgive name 10` `!vtop` `!vavatar mage`
 
-Minigames: `!vduel name 10` then `!accept` · `!vslots 10` · `!royale` then `!join` · `!basketball` then `!shoot 5`
+Minigames: `!vduel name 10` then `!vaccept` · `!vslots 10` · `!vroyale` then `!vjoin` · `!vbasketball` then `!vshoot 5`
 
 Broadcaster and mods only: `!boss` · `!megaboss` · `!mass dance` · `!royale` · `!basketball`. Bosses are
 deliberately not a free command - viewers summon them with channel points, and
 a free equivalent would make the reward worthless. `!monster` and `!loot` do
 not exist for the same reason.
 
-Fun: `!8ball will I win` · `!roll 2d6` · `!log` shows the battle log for 15 seconds · `!vhelp`
+Fun: `!v8ball will I win` · `!vroll 2d6` · `!vlog` shows the battle log · `!vhelp`
 
-Floor: `!lounge` parks the monsters so chat just hangs out. `!war` brings the horde back.
-Mods: `!mass dance` (also hug, attack, bomb, explode, jump) · `!megaboss`.
+Floor: `!vlounge` parks the monsters. `!vwar` brings the horde back.
+Mods: `!vmass dance` · `!vboss` · `!vmegaboss` · `!vroyale` · `!vbasketball`
 
-**Why the `v` prefix.** Two neighbours own bare command names on this channel.
-StreamElements owns `!points` `!shop` `!buy` `!top` `!give` `!slots` and `!duel`, and
-answers them with its own store errors while this overlay acts on the same message.
-Bellmire HD - the town sim that runs as the main view on the same stream - owns
-`!stats` `!help` and `!commands`. Everything moved rather than asking anyone to switch
-half of either off. Typing an old name tells you where it went.
+**Every command starts with `!v`.** No exceptions - `!vjump`, `!vshop`, `!vroll`,
+`!v8ball`, all of them. This channel also runs Bellmire HD, which reserves the whole
+`v` prefix, so nothing here can ever collide with it. Working out ownership name by
+name meant a round of churn for viewers every time either side added a command; one
+rule ends that. Typing a bare name answers once with where the command lives.
 
-`!roll` stays bare here. Bellmire's `!roll` was an alias of `!guild` - the Guild Roll,
-a roster, not dice - and it has no viewer-facing dice command at all. A viewer typing
-`!roll` wants dice, which is what this does. `!vroll` still answers as a silent alias.
-`!log` is bare too: Bellmire's Chronicle is on-screen furniture, not a command.
 
-**Channel point rewards are an allowlist.** A reward whose title contains none of this
-overlay's keywords is ignored in silence. It used to fall through to a chest, which
-meant every reward on the channel - song requests, TTS, anything belonging to another
-app - dropped loot here.
-
-**`!royale` and `!basketball` are mods-only**, because both take the whole strip over
-and the main view opens its own panes; two takeovers at once is a mess on stream.
-
-**The follower monster is off by default** (`followMonster`), because another app on
-this channel owns follow alerts. The sub crown is unaffected.
 
 ## Abilities
 

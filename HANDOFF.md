@@ -436,7 +436,17 @@ This overlay is not the only thing reading chat and Twitch events on
 jestsayin96. Bellmire HD runs as the main view on the same stream. Four rules
 came out of that, and they generalise to any second points-driven tool:
 
-- **Bare command names are contested.** StreamElements owns the economy names;
+- **EVERY command starts with `!v`.** Not a per-name negotiation - one rule.
+  Bellmire reserves the whole `v` prefix, so nothing here can collide with it
+  again. Deciding ownership name by name meant churn for viewers every time
+  either side shipped a command, and it got a command moved that nobody else
+  wanted. Branches in runCmd are written BARE; one line at the top strips a
+  leading `v` when what remains is a real command, and a bare name answers
+  once with where it lives. Two traps found doing it: the hidden-viewer
+  rescue path runs BEFORE that rule, so it accepts both spellings or a hidden
+  viewer is stuck invisible for ever; and an internal `runCmd(a,"points",...)`
+  delegation lands on the redirect branch, so internal calls must use the v
+  form. StreamElements owns the economy names;
   Bellmire owns `!stats` `!help` `!commands`. Those carry the `v` prefix here,
   and the old name answers once with where it went - silence reads as broken.
   `!roll` and `!log` stay bare: Bellmire's `!roll` was an alias of `!guild`

@@ -3070,10 +3070,10 @@ const rows=$("rows"); const MAXROWS=7;
    people assume they need a command to take part, and they do not. */
 const HINTS=[
   "just chat - you join the village automatically",
-  "!jump  !dance  !wave  !hug name  !attack name",
-  "!vhelp - every command  ·  !log - show the battle log",
+  "!vjump  !vdance  !vwave  !vhug name  !vattack name",
+  "!vhelp - every command  ·  !vlog - show the battle log",
   "!vshop - spend the points you earn by chatting",
-  "!royale  !basketball  !vduel name 10",
+  "!vduel name 10  ·  !vslots 10",
 ];
 /* The log is hidden by default because at the player size most people
    watch at, 21px text on a 1920 canvas renders around 7px - unreadable
@@ -3520,7 +3520,7 @@ function startDuel(a, b, wager, force){
   if (!force){
     MG.pending = {from:a, to:b, wager, until:V.t+18};
     log([{t:a.name,c:"c-t"},{t:" challenges ",c:"c-v"},{t:b.name,c:"c-h"},
-         {t:" for "+wager+" — !accept",c:"c-l"}]);
+         {t:" for "+wager+" — !vaccept",c:"c-l"}]);
     toast(b.name+" — !ACCEPT", "var(--loot)");
     return;
   }
@@ -3545,7 +3545,7 @@ function startRoyale(){
   if (MG.kind){ log([{t:"A minigame is already running",c:"c-v"}]); return; }
   MG.kind="royale-join"; MG.until=V.t+8; MG.roster=[]; MG.prize=80;
   toast("BATTLE ROYALE — !JOIN", "var(--horde)");
-  log([{t:"BATTLE ROYALE",c:"c-h"},{t:" — type !join   (8s)",c:"c-v"}]);
+  log([{t:"BATTLE ROYALE",c:"c-h"},{t:" — type !vjoin   (8s)",c:"c-v"}]);
 }
 function beginRoyale(){
   const roster = MG.roster.filter(e=>e && e.alive && e.state!=="down");
@@ -3565,7 +3565,7 @@ function startHoop(){
   if (MG.kind){ log([{t:"A minigame is already running",c:"c-v"}]); return; }
   MG.kind="hoop"; MG.until=V.t+28; MG.scores={}; MG.prize=50;
   toast("BASKETBALL — !SHOOT", "var(--loot)");
-  log([{t:"BASKETBALL",c:"c-l"},{t:" — !shoot 1 to 9, 5 is pure",c:"c-v"}]);
+  log([{t:"BASKETBALL",c:"c-l"},{t:" — !vshoot 1 to 9, 5 is pure",c:"c-v"}]);
 }
 function doSlots(e, wager){
   if (!e || !e.rec) return;
@@ -3642,16 +3642,48 @@ function attackTarget(a, named){
   }
   return nearestFoe(a);
 }
+/* Every command this overlay answers is spelled !v<something>. One rule,
+   no exceptions, because exceptions are what caused the trouble: this
+   channel also runs Bellmire HD, and working out name by name who owned
+   what meant a round of churn every time either side added a command.
+   Bellmire reserves the whole v prefix, so nothing here can collide again.
+
+   Branches below are written in their BARE form. This list is what the
+   outside world may type, and it is derived from the branches rather than
+   maintained alongside them - a second list is a list that goes stale. */
+const CMD_NAMES = new Set([
+  "jump","dance","sit","wave","hat","charge","stats","color","colour",
+  "hug","attack","slap","punch","bomb","explode","hideavatar","hide",
+  "points","coins","gold","give","shop","buy","top","lb","leaderboard",
+  "avatar","class","random","duel","accept","slots","slot",
+  "boss","megaboss","mega","royale","br","join","basketball","hoop","shoot",
+  "lounge","hangout","chill","war","fight","village",
+  "mass","8ball","roll","log","battlelog","feed","commands","help",
+]);
+
 function runCmd(a, c, rest, tags){
   const arg = rest.join(" ");
   const arg0 = (rest[0]||"").replace(/^@/,"");
+
+  /* !vjump -> jump. Only strips the v when what is left is a real command,
+     so !village does not quietly become "illage". */
+  if (c[0]==="v" && CMD_NAMES.has(c.slice(1))) c = c.slice(1);
+  else if (CMD_NAMES.has(c)){
+    /* They typed the bare name. Something else on this channel may well
+       have answered it too, so say once where ours lives rather than
+       going silent - silence reads as broken. */
+    log([{t:"!"+c,c:"c-v"},{t:" is ",c:"c-v"},{t:"!v"+c,c:"c-t"},
+         {t:" here — every village command starts with !v",c:"c-v"}]);
+    return;
+  }
+  else return;                       // not ours at all: stay quiet
   if (["jump","dance","sit","wave","hat","charge"].includes(c)) return act(a, c);
-  if (c==="vstats") return act(a, "stats");
+  if (c==="stats") return act(a, "stats");
   if (c==="color" || c==="colour") return act(a, "color", arg);
   if (c==="hug"){
     const t = findNamed(arg0) || heroes().find(h=>h!==a && h.state!=="down");
     if (t) goIntent(a, "hug", t);
-    else log([{t:"!hug name",c:"c-v"}]);
+    else log([{t:"!vhug name",c:"c-v"}]);
     return;
   }
   if (c==="attack" || c==="slap" || c==="punch"){
@@ -3671,10 +3703,10 @@ function runCmd(a, c, rest, tags){
   }
   if (c==="hideavatar" || c==="hide"){
     a.rec.hidden = true; Save.put(); retire(a);
-    log([{t:a.name,c:"c-v"},{t:" ducked out · !hideavatar to come back",c:"c-v"}]);
+    log([{t:a.name,c:"c-v"},{t:" ducked out · !vhideavatar to come back",c:"c-v"}]);
     return;
   }
-  if (c==="vpoints" || c==="vcoins" || c==="vgold"){
+  if (c==="points" || c==="coins" || c==="gold"){
     if ((rest[0]||"")==="give"){
       const t = findNamed(rest[1]);
       const n = Math.max(0, Math.min(coinsOf(a.rec), parseInt(rest[2],10)||0));
@@ -3686,10 +3718,13 @@ function runCmd(a, c, rest, tags){
     log([{t:a.name,c:"c-t"},{t:" — "+coinsOf(a.rec)+" loyalty pts",c:"c-l"}]);
     return;
   }
-  if (c==="vgive") return runCmd(a, "vpoints", ["give", ...rest], tags);
-  if (c==="vshop") return showShop(a);
-  if (c==="vbuy") return tryBuy(a, arg || arg0);
-  if (c==="vtop" || c==="vlb" || c==="vleaderboard") return showBoard();
+  /* Delegates through the v form on purpose: runCmd normalises at its top,
+     so an internal call with the bare name lands on the redirect branch and
+     the command silently does nothing. */
+  if (c==="give") return runCmd(a, "vpoints", ["give", ...rest], tags);
+  if (c==="shop") return showShop(a);
+  if (c==="buy") return tryBuy(a, arg || arg0);
+  if (c==="top" || c==="lb" || c==="leaderboard") return showBoard();
   if (c==="avatar" || c==="class"){
     const want = (arg0||"").toLowerCase();
     const item = SHOP.find(s=>s.cls===want);
@@ -3710,7 +3745,7 @@ function runCmd(a, c, rest, tags){
     log([{t:a.name,c:"c-t"},{t:" spun a new look",c:"c-v"}]);
     return;
   }
-  if (c==="vduel"){
+  if (c==="duel"){
     const t = findNamed(arg0);
     const w = parseInt(rest[1],10);
     if (!t){ log([{t:"!vduel name amount",c:"c-v"}]); return; }
@@ -3724,7 +3759,7 @@ function runCmd(a, c, rest, tags){
     beginDuel(p.from, a, p.wager);
     return;
   }
-  if (c==="vslots" || c==="vslot"){ doSlots(a, parseInt(arg0,10)||10); return; }
+  if (c==="slots" || c==="slot"){ doSlots(a, parseInt(arg0,10)||10); return; }
   if (c==="boss"){
     /* Broadcaster and mods only - not because a boss is dangerous, but
        because a free command that does exactly what a channel point
@@ -3779,7 +3814,7 @@ function runCmd(a, c, rest, tags){
       log([{t:"Hoops is started by the mods",c:"c-v"}]); return; }
     startHoop(); return; }
   if (c==="shoot"){
-    if (MG.kind!=="hoop"){ log([{t:"No hoop up — !basketball",c:"c-v"}]); return; }
+    if (MG.kind!=="hoop"){ log([{t:"No hoop up — !vbasketball",c:"c-v"}]); return; }
     const n=parseInt(arg0,10);
     shootBall(a, isNaN(n)?null:clamp(n,1,9));
     return;
@@ -3798,7 +3833,7 @@ function runCmd(a, c, rest, tags){
                "Ask again after the next boss.","Obviously.","Not tonight."];
     log([{t:pick(ans),c:"c-l"}]); return;
   }
-  if (c==="roll" || c==="vroll"){
+  if (c==="roll"){
     const spec=arg0||"1d20";
     const m=spec.match(/^(\d*)d(\d+)$/i);
     const n=Math.min(8, m?parseInt(m[1]||"1",10):1);
@@ -3807,43 +3842,14 @@ function runCmd(a, c, rest, tags){
     log([{t:a.name,c:"c-t"},{t:" rolled "+sum+" ("+n+"d"+faces+")",c:"c-l"}]);
     return;
   }
-  /* StreamElements owns !points !shop !buy !top !give !slots !duel by
-     default, so a viewer typing those got a red "item not found" from the
-     bot while the overlay quietly acted on the same message. The overlay's
-     economy moved behind a v prefix rather than asking anyone to turn off
-     half of StreamElements. The bare names are not silently ignored - they
-     say where the command went, once, in the log. */
-  /* Two different neighbours own bare command names on this channel: the
-     first group collides with StreamElements, the second with Bellmire HD,
-     which runs as the main view on the same stream. Same redirect either
-     way - a viewer typing the old name is told once where it went rather
-     than being met with silence.
-
-     !roll is deliberately NOT in here. It looked like a Bellmire command
-     because its !roll was an alias of !guild - the Guild Roll, a roster,
-     nothing to do with dice. Bellmire has no viewer-facing dice command at
-     all; it rolls its own. A viewer typing !roll wants dice, which is what
-     this does, so it keeps the bare name. !vroll still answers, silently,
-     for anyone who learned it while it was moved. */
-  const MOVED={points:"vpoints",coins:"vpoints",gold:"vpoints",currency:"vpoints",
-               shop:"vshop",buy:"vbuy",give:"vgive",top:"vtop",lb:"vtop",
-               leaderboard:"vtop",slots:"vslots",slot:"vslots",duel:"vduel",
-               stats:"vstats",help:"vhelp",commands:"vcommands"};
-  if (MOVED[c]){
-    const BELLMIRE=/^(stats|help|commands)$/;
-    log([{t:"!"+c,c:"c-v"},{t:" is now ",c:"c-v"},{t:"!"+MOVED[c],c:"c-t"},
-         {t:BELLMIRE.test(c) ? " (Bellmire uses the old name)"
-                             : " (StreamElements uses the old name)",c:"c-v"}]);
-    return;
-  }
-  if (c==="log" || c==="battlelog" || c==="feed"){ showLog(); return; }
-  if (c==="vcommands" || c==="vhelp"){
+    if (c==="log" || c==="battlelog" || c==="feed"){ showLog(); return; }
+  if (c==="commands" || c==="help"){
     log([{t:"Just chat and you join - no command needed",c:"c-l"}]);
-    log([{t:"!jump !dance !wave !hug name !attack name !bomb !royale !basketball",c:"c-t"}]);
+    log([{t:"!vjump !vdance !vwave !vhug name !vattack name !vbomb",c:"c-t"}]);
     log([{t:"!vshop !vbuy crown !vpoints !vtop !vduel name 10 !vslots 10",c:"c-v"}]);
-    log([{t:"!vstats !roll 2d6 !8ball !log !vhelp",c:"c-v"}]);
-    log([{t:"!avatar mage !color #4db8ff !hat !hideavatar !lounge !war",c:"c-v"}]);
-    log([{t:"!boss and !megaboss are broadcaster and mods only",c:"c-b"}]);
+    log([{t:"!vstats !vroll 2d6 !v8ball !vlog",c:"c-v"}]);
+    log([{t:"!vavatar mage !vcolor red !vhat !vhideavatar !vlounge !vwar",c:"c-v"}]);
+    log([{t:"!vboss !vmegaboss !vroyale !vbasketball — broadcaster and mods",c:"c-b"}]);
     toast("COMMANDS IN THE LOG", "var(--teal)");
   }
 }
@@ -3910,7 +3916,13 @@ const Game = {
     const cmd = parts[0] ? parts[0].toLowerCase() : "";
     const rec = Save.get(name);
     if (rec.hidden){
-      if (cmd==="hideavatar" || cmd==="hide"){
+      /* The only way back. It runs before runCmd, so it never sees the v
+         rule - and a hidden viewer who types the wrong spelling is stuck
+         invisible with no way to find out why. Both spellings work here
+         deliberately: being generous costs nothing, being strict costs
+         someone their character. */
+      if (cmd==="hideavatar" || cmd==="hide" ||
+          cmd==="vhideavatar" || cmd==="vhide"){
         rec.hidden = false; Save.put();
         joinHero(name, color);
         log([{t:name,c:"c-t"},{t:" is back",c:"c-v"}]);
