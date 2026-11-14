@@ -4017,6 +4017,10 @@ const Game = {
 let ircMsgCount=0;
 function onChat(line){
   ircMsgCount++; updateMsgCount();
+  /* DIAGNOSTIC — remove after OBS is confirmed working.
+     Forces a toast on every received message so we can tell:
+     toast appears → processing bug.  toast absent → rendering bug. */
+  try { toast("MSG #"+ircMsgCount, "var(--teal)"); } catch(e){}
   let tags={};
   if (line[0]==="@"){
     const cut=line.indexOf(" ");
