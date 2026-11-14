@@ -3951,18 +3951,15 @@ const Game = {
     const cmd = parts[0] ? parts[0].toLowerCase() : "";
     const rec = Save.get(name);
     if (rec.hidden){
-      /* The only way back. It runs before runCmd, so it never sees the v
-         rule - and a hidden viewer who types the wrong spelling is stuck
-         invisible with no way to find out why. Both spellings work here
-         deliberately: being generous costs nothing, being strict costs
-         someone their character. */
-      if (cmd==="hideavatar" || cmd==="hide" ||
-          cmd==="vhideavatar" || cmd==="vhide"){
-        rec.hidden = false; Save.put();
-        joinHero(name, color);
-        log([{t:name,c:"c-t"},{t:" is back",c:"c-v"}]);
-      }
-      return;
+      /* Any chat message at all means the viewer is present. Typing in
+         chat is an explicit act - they want to participate. Un-hide them
+         and carry on normally rather than swallowing the command.
+         The old rule required exactly !vhideavatar to come back, which
+         left people stuck invisible with no feedback and no idea why.
+         The deliberate opt-out (!vhideavatar) still hides them below. */
+      rec.hidden = false; Save.put();
+      joinHero(name, color);
+      log([{t:name,c:"c-t"},{t:" is back",c:"c-v"}]);
     }
     const a = joinHero(name, color);
     if (!a) return;
@@ -4293,7 +4290,7 @@ addEventListener("keydown",e=>{
 (function seed(){
   /* Belt and braces for saves made before demo chatters stopped being
      persisted: never march a prop on as a regular. */
-  const all=Object.values(Save.d).filter(r=>!FAKE_SET.has((r.name||"").toLowerCase()))
+  const all=Object.values(Save.d).filter(r=>!FAKE_SET.has((r.name||"").toLowerCase()) && !r.hidden)
                                  .sort((a,b)=>b.msgs-a.msgs).slice(0,8);
   for(const r of all) joinHero(r.name);
   for(let i=0;i<3;i++) spawnMonster(null);
