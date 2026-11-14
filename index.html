@@ -47,7 +47,7 @@
 :root{
   --teal:#2de6c8; --teal-deep:#0e8f7c;
   --horde:#ff4d6d; --boss:#ffb224; --loot:#ffd166;
-  --panel:rgba(8,13,18,.72); --edge:rgba(45,230,200,.3);
+  --panel:rgba(8,13,18,.88); --edge:rgba(45,230,200,.3);
   --ink:#e8fbf7; --dim:#8fb3ad;
   --ui:"Silkscreen","Courier New",monospace;
   --log:"VT323","Courier New",monospace;
@@ -109,7 +109,9 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;
 
 #toast{position:absolute;left:50%;top:170px;transform:translateX(-50%) translateY(-8px);
   font-size:30px;letter-spacing:.06em;opacity:0;text-align:center;
-  text-shadow:0 3px 18px rgba(0,0,0,.95);transition:opacity .22s,transform .22s}
+  text-shadow:0 3px 18px rgba(0,0,0,.95);transition:opacity .22s,transform .22s;
+  background:rgba(6,11,15,.85);padding:8px 18px;border-radius:6px;
+  border:1px solid rgba(255,255,255,.12);max-width:80vw}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
 #mg{position:absolute;left:50%;top:78px;transform:translateX(-50%);
