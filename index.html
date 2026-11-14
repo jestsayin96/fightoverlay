@@ -171,6 +171,7 @@ button:hover{filter:brightness(1.12)}
       <span class="r"><b id="nMob">0</b> MONSTERS</span>
     </div>
     <div id="line"><i id="lineFill" style="width:50%"></i></div>
+    <div id="connStat" style="font-size:9px;letter-spacing:.1em;margin-top:5px;color:var(--dim)"></div>
   </div>
 
   <div id="feed" class="panel">
@@ -3188,7 +3189,8 @@ function paint(m,bad){
 function renderStat(){
   $("status").innerHTML = [ST.chat, ST.events].filter(Boolean).join("<br>");
 }
-function stat(m,bad){ ST.chat = paint(m,bad); renderStat(); }
+function stat(m,bad){ ST.chat = paint(m,bad); renderStat();
+  const cs=$("connStat"); if(cs) cs.innerHTML=paint(m,bad); }
 function statEvents(m,bad){ ST.events = paint(m,bad); renderStat(); }
 
 /* Ask to join, and keep asking until Twitch confirms. A JOIN can be lost
@@ -3205,9 +3207,21 @@ function ircJoin(){
 function chatConnect(){
   if (!CFG.channel){ stat("Enter your channel name.",true); return; }
   if (irc){ try{ irc.close(); }catch(e){} }
-  irc=new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+  stat("Connecting to Twitch chat…");
+  console.log("[JV] chatConnect → wss://irc-ws.chat.twitch.tv  attempt", ircRetry);
+  try {
+    irc=new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+  } catch(e){
+    stat("WebSocket blocked — "+e.message, true);
+    console.error("[JV] WebSocket constructor threw:", e);
+    ircRetry=Math.min(ircRetry+1,6);
+    setTimeout(chatConnect, ircRetry*3000);
+    return;
+  }
   ircJoined=false; clearTimeout(ircJoinTimer);
   irc.onopen=()=>{
+    console.log("[JV] WebSocket open, sending auth");
+    stat("Socket open, authenticating…");
     irc.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
     irc.send("PASS SCHMOOPIIE");
     irc.send("NICK justinfan"+(10000+((Math.random()*80000)|0)));
@@ -3219,6 +3233,10 @@ function chatConnect(){
        streamer's own machine - it answered PONG, proving the connection was
        healthy, while no chat ever arrived. Join only once 001 says we are
        in. */
+  };
+  irc.onerror=ev=>{
+    console.error("[JV] WebSocket error:", ev);
+    stat("Chat connection error — retrying…", true);
   };
   irc.onmessage=ev=>{
     for (const line of ev.data.split("\r\n")){
@@ -3241,7 +3259,9 @@ function chatConnect(){
       if(line.includes("PRIVMSG")) onChat(line);
     }
   };
-  irc.onclose=()=>{ clearTimeout(ircJoinTimer); ircJoined=false;
+  irc.onclose=(ev)=>{ clearTimeout(ircJoinTimer); ircJoined=false;
+    console.log("[JV] WebSocket closed — code:", ev.code, "reason:", ev.reason);
+    stat("Chat disconnected (code "+ev.code+") — retry #"+(ircRetry+1)+"…", true);
     ircRetry=Math.min(ircRetry+1,6);
     setTimeout(chatConnect, ircRetry*2000); };
 }
