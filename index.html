@@ -4016,11 +4016,7 @@ const Game = {
 /* Twitch IRC line -> Game.chat */
 let ircMsgCount=0;
 function onChat(line){
-  ircMsgCount++; updateMsgCount();
-  /* DIAGNOSTIC — remove after OBS is confirmed working.
-     Forces a toast on every received message so we can tell:
-     toast appears → processing bug.  toast absent → rendering bug. */
-  try { toast("MSG #"+ircMsgCount, "var(--teal)"); } catch(e){}
+  ircMsgCount++;
   let tags={};
   if (line[0]==="@"){
     const cut=line.indexOf(" ");
@@ -4029,9 +4025,17 @@ function onChat(line){
     line=line.slice(cut+1);
   }
   const m=line.match(/^:([^!]+)![^ ]+ PRIVMSG #[^ ]+ :(.*)$/);
-  if(!m) return;
-  console.log("[JV] PRIVMSG #"+ircMsgCount+":", m[1], m[2]);
-  Game.chat(tags["display-name"]||m[1], m[2],
+  if(!m){
+    /* DIAGNOSTIC: show what we got that didn't match */
+    const cs=$("connStat"); if(cs) cs.textContent="MSG #"+ircMsgCount+" (no match): "+line.slice(0,60);
+    return;
+  }
+  const who = tags["display-name"]||m[1], what = m[2];
+  /* DIAGNOSTIC: write every received message into the connStat line
+     which we KNOW renders in OBS. Remove after confirmed working. */
+  const cs=$("connStat");
+  if(cs) cs.textContent="#"+ircMsgCount+" "+who+": "+what;
+  Game.chat(who, what,
             /^#[0-9a-f]{6}$/i.test(tags.color||"") ? tags.color : null, tags);
 }
 
