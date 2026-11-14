@@ -3191,6 +3191,10 @@ function renderStat(){
 }
 function stat(m,bad){ ST.chat = paint(m,bad); renderStat();
   const cs=$("connStat"); if(cs) cs.innerHTML=paint(m,bad); }
+function updateMsgCount(){
+  const cs=$("connStat"); if(!cs) return;
+  cs.innerHTML=paint("Connected to #"+CFG.channel+" — "+ircMsgCount+" msgs received");
+}
 function statEvents(m,bad){ ST.events = paint(m,bad); renderStat(); }
 
 /* Ask to join, and keep asking until Twitch confirms. A JOIN can be lost
@@ -4013,7 +4017,9 @@ const Game = {
 };
 
 /* Twitch IRC line -> Game.chat */
+let ircMsgCount=0;
 function onChat(line){
+  ircMsgCount++; updateMsgCount();
   let tags={};
   if (line[0]==="@"){
     const cut=line.indexOf(" ");
@@ -4023,6 +4029,7 @@ function onChat(line){
   }
   const m=line.match(/^:([^!]+)![^ ]+ PRIVMSG #[^ ]+ :(.*)$/);
   if(!m) return;
+  console.log("[JV] PRIVMSG #"+ircMsgCount+":", m[1], m[2]);
   Game.chat(tags["display-name"]||m[1], m[2],
             /^#[0-9a-f]{6}$/i.test(tags.color||"") ? tags.color : null, tags);
 }
