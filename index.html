@@ -339,7 +339,7 @@ const T = {
                        //   left 60% of the frame empty for 40 seconds.
   engage:     64,      // how close before they stop and swing
   maxHeroes:  26,
-  maxMobs:    22,
+  maxMobs:    30,
   march:      210,     // px/sec. At 78 the fight was 95% commute: paired
                        //   fighters sat a median 846px apart against a
                        //   64px engage range and fought 3% of the time
@@ -555,7 +555,10 @@ const SKINS = ["#f1c9a5","#d9a173","#a9713f","#7a4a26","#f7dfc4","#5e3418"];
 const SHIRTS= ["#2de6c8","#4ddc5f","#8f6bff","#4db8ff","#ffd166","#ff7ad9",
                "#ff8a3d","#9ef01a","#f2fbf9","#5ad1b4"];
 const MONSTER_KINDS = ["Goblin","Skeleton","Slime","Imp","Ghoul","Kobold","Wraith",
-                       "Spider","Rat","Mushroom","Eye Beast","Bat"];
+                       "Spider","Rat","Mushroom","Eye Beast","Bat",
+                       "Scorpion","Wolf","Beetle","Harpy","Toad","Bandit","Shade",
+                       "Golem","Serpent","Gargoyle","Worm","Flame Sprite",
+                       "Ice Elemental","Scarecrow","Mimic"];
 /* Widened from five: five epithets over seven kinds is 35 names, and with a
    dozen monsters alive the birthday maths puts two or three duplicates on
    screen at once. See spawnMonster, which also rejects names already taken. */
@@ -1900,7 +1903,10 @@ const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian",
    as one sprite repeated even before the runtime palette swap. */
 const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp",
                        "chort","zombie","masked_orc","swampy","wraith",
-                       "kobold","spider","rat","mushroom","eyebeast","bat"];
+                       "kobold","spider","rat","mushroom","eyebeast","bat",
+                       "scorpion","wolf","beetle","harpy","toad","bandit",
+                       "shade","golem","serpent","gargoyle","worm",
+                       "flamesprite","iceelem","scarecrow","mimic"];
 const BOSS_SPRITES  = ["demon","ogre","bigzombie","dragon","lich","minotaur"];
 const MEGA_SPRITES  = ["hydra","deathknight"];
 
@@ -2125,6 +2131,52 @@ defSprite("mob_eyebeast",
 defSprite("mob_bat",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:80, ch:80, ax:40, ay:72, fh:50, dir:"sprites/bat/"});
+
+defSprite("mob_scorpion",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:52, dir:"sprites/scorpion/"});
+defSprite("mob_wolf",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:50, dir:"sprites/wolf/"});
+defSprite("mob_beetle",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:48, dir:"sprites/beetle/"});
+defSprite("mob_harpy",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:54, dir:"sprites/harpy/"});
+defSprite("mob_toad",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:48, dir:"sprites/toad/"});
+defSprite("mob_bandit",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:54, dir:"sprites/bandit/"});
+defSprite("mob_shade",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:52, dir:"sprites/shade/"});
+defSprite("mob_golem",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:56, dir:"sprites/golem/"});
+defSprite("mob_serpent",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:50, dir:"sprites/serpent/"});
+defSprite("mob_gargoyle",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:56, dir:"sprites/gargoyle/"});
+defSprite("mob_worm",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:46, dir:"sprites/worm/"});
+defSprite("mob_flamesprite",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:50, dir:"sprites/flamesprite/"});
+defSprite("mob_iceelem",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:52, dir:"sprites/iceelem/"});
+defSprite("mob_scarecrow",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:54, dir:"sprites/scarecrow/"});
+defSprite("mob_mimic",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:50, dir:"sprites/mimic/"});
 
 /* ── NEW BOSSES ── */
 defSprite("boss_dragon",
