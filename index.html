@@ -554,7 +554,8 @@ const HATS = ["none","jester","crown","horns","cap","topknot","halo"];
 const SKINS = ["#f1c9a5","#d9a173","#a9713f","#7a4a26","#f7dfc4","#5e3418"];
 const SHIRTS= ["#2de6c8","#4ddc5f","#8f6bff","#4db8ff","#ffd166","#ff7ad9",
                "#ff8a3d","#9ef01a","#f2fbf9","#5ad1b4"];
-const MONSTER_KINDS = ["Goblin","Skeleton","Slime","Imp","Ghoul","Kobold","Wraith"];
+const MONSTER_KINDS = ["Goblin","Skeleton","Slime","Imp","Ghoul","Kobold","Wraith",
+                       "Spider","Rat","Mushroom","Eye Beast","Bat"];
 /* Widened from five: five epithets over seven kinds is 35 names, and with a
    dozen monsters alive the birthday maths puts two or three duplicates on
    screen at once. See spawnMonster, which also rejects names already taken. */
@@ -878,7 +879,7 @@ function spawnMegaBoss(by){
   const B = baseEnt(kind, -1, mobLook(kind));
   B.isBoss = true; B.isMega = true; B.kindName = kind;
   B.summoner = by || "Someone";
-  B.spriteKey = "boss_" + BOSS_SPRITES[hash(kind) % BOSS_SPRITES.length];
+  B.spriteKey = "boss_" + MEGA_SPRITES[hash(kind) % MEGA_SPRITES.length];
   B.x = T.mobGate + 90;
   B.y = (T.stripTop + T.stripBot)/2;
   /* It fights at thirty levels above the strongest real viewer present, so
@@ -1891,15 +1892,17 @@ const CELL_W=112, CELL_H=120, ANCHOR_X=56, ANCHOR_Y=112;
 const SPRITE_DIR="sprites/";
 
 const HERO_SPRITES = ["knight","paladin","mage","cleric","rogue","barbarian",
-                      "ranger","necromancer"];
+                      "ranger","necromancer","samurai","monk","bard","druid",
+                      "warlock","berserker","crossbowman","priest","pirate","ninja"];
 /* Every monster is drawn for this project. Mixing in a third-party pack
    had put 30px monsters shoulder to shoulder with 52px ones. They are kept apart
    by silhouette first and colour second, so a line of them does not read
    as one sprite repeated even before the runtime palette swap. */
 const MOB_SPRITES   = ["goblin","skelet","orc_warrior","imp",
                        "chort","zombie","masked_orc","swampy","wraith",
-                       "kobold"];
-const BOSS_SPRITES  = ["demon","ogre","bigzombie"];
+                       "kobold","spider","rat","mushroom","eyebeast","bat"];
+const BOSS_SPRITES  = ["demon","ogre","bigzombie","dragon","lich","minotaur"];
+const MEGA_SPRITES  = ["hydra","deathknight"];
 
 const SPRITES = {};
 /* geo lets a set carry its own cell size, foot anchor and folder, so art
@@ -2073,6 +2076,74 @@ defSprite("boss_demon",
 defSprite("boss_bigzombie",
   {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
   {cw:112, ch:112, ax:58, ay:102, fh:88, dir:"sprites/bigzombie/"});
+
+/* ── NEW HEROES ── */
+defSprite("samurai",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:62, dir:"sprites/samurai/"});
+defSprite("monk",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:60, dir:"sprites/monk/"});
+defSprite("bard",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:60, dir:"sprites/bard/"});
+defSprite("druid",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:64, dir:"sprites/druid/"});
+defSprite("warlock",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:64, dir:"sprites/warlock/"});
+defSprite("berserker",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:62, dir:"sprites/berserker/"});
+defSprite("crossbowman",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:58, dir:"sprites/crossbowman/"});
+defSprite("priest",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:62, dir:"sprites/priest/"});
+defSprite("pirate",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:58, dir:"sprites/pirate/"});
+defSprite("ninja",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:74, fh:56, dir:"sprites/ninja/"});
+
+/* ── NEW MONSTERS ── */
+defSprite("mob_spider",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:52, dir:"sprites/spider/"});
+defSprite("mob_rat",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:48, dir:"sprites/rat/"});
+defSprite("mob_mushroom",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:52, dir:"sprites/mushroom/"});
+defSprite("mob_eyebeast",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:54, dir:"sprites/eyebeast/"});
+defSprite("mob_bat",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:80, ch:80, ax:40, ay:72, fh:50, dir:"sprites/bat/"});
+
+/* ── NEW BOSSES ── */
+defSprite("boss_dragon",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:112, ch:112, ax:56, ay:102, fh:90, dir:"sprites/dragon/"});
+defSprite("boss_lich",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:112, ch:112, ax:56, ay:102, fh:86, dir:"sprites/lich/"});
+defSprite("boss_minotaur",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:112, ch:112, ax:56, ay:102, fh:92, dir:"sprites/minotaur/"});
+
+/* ── NEW MEGA BOSSES ── */
+defSprite("boss_hydra",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:112, ch:112, ax:56, ay:102, fh:92, dir:"sprites/hydra/"});
+defSprite("boss_deathknight",
+  {idle:"idle.png", walk:"walk.png", attack:"attack.png", death:"death.png"},
+  {cw:112, ch:112, ax:56, ay:102, fh:90, dir:"sprites/deathknight/"});
 
 function spriteSetFor(e){
   const set = SPRITES[e.spriteKey];
@@ -3291,6 +3362,16 @@ const SHOP = [
   {id:"knight", cost:30, cls:"knight", label:"Knight"},
   {id:"ranger", cost:40, cls:"ranger", label:"Ranger"},
   {id:"necromancer", cost:50, cls:"necromancer", label:"Necromancer"},
+  {id:"samurai", cost:45, cls:"samurai", label:"Samurai"},
+  {id:"monk", cost:35, cls:"monk", label:"Monk"},
+  {id:"bard", cost:35, cls:"bard", label:"Bard"},
+  {id:"druid", cost:40, cls:"druid", label:"Druid"},
+  {id:"warlock", cost:50, cls:"warlock", label:"Warlock"},
+  {id:"berserker", cost:35, cls:"berserker", label:"Berserker"},
+  {id:"crossbowman", cost:30, cls:"crossbowman", label:"Crossbowman"},
+  {id:"priest", cost:40, cls:"priest", label:"Priest"},
+  {id:"pirate", cost:40, cls:"pirate", label:"Pirate"},
+  {id:"ninja", cost:50, cls:"ninja", label:"Ninja"},
 ];
 const SLOT_FACES = ["JEST","GOLD","SKUL","GEM","BOSS"];
 let slotShow = null;
